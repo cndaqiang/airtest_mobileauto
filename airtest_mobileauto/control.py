@@ -19,6 +19,8 @@ import random
 import traceback
 import subprocess
 import shlex
+import configparser
+import multiprocessing
 # 重写函数#
 from airtest.core.api import connect_device, sleep
 from airtest.core.api import exists as exists_o
@@ -37,46 +39,139 @@ ST.THRESHOLD_STRICT = 0.8
 ST.THRESHOLD = 0.8  # 其他语句的默认阈值
 # ST.FIND_TIMEOUT=10 #*2 #获取截图的时间限制
 # ST.FIND_TIMEOUT_TMP=1#匹配图形的时间限制, 也许可以再改小些加速
-# 时间参数
-# 防止服务器时区不同,设定时间为东八区
-# 创建一个表示东八区时区的 timedelta 对象
-eastern_eight_offset = timedelta(hours=8)
-# 创建一个时区对象
-eastern_eight_tz = timezone(eastern_eight_offset)
-# ? 设置,虚拟机,android docker, iphone, etc,主要进行设备的连接和重启
-BlueStackdir = "C:\Program Files\BlueStacks_nxt"
-LDPlayerdir = "D:\GreenSoft\LDPlayer"
-
-# 获取当前的运行信息, 有的客户端有bug
-AirtestIDE = "AirtestIDE" in sys.executable
-
 
 # 控制屏幕输出
 # 这个设置可以极低的降低airtest输出到屏幕的信息
 logger = logging.getLogger("airtest")
 logger.setLevel(logging.WARNING)
+#
+
+
+class Settings(object):
+    # ? 设置,虚拟机,android docker, iphone, etc,主要进行设备的连接和重启
+    BlueStackdir = ""  # "C:\Program Files\BlueStacks_nxt"
+    LDPlayerdir = ""  # "D:\GreenSoft\LDPlayer"
+    dockercontain = ""  # "androidcontain"
+    #
+    # 特色修改
+    # python解释器是AirtestIDE还是终端的python
+    AirtestIDE = "AirtestIDE" in sys.executable
+    start_app_syskeys = False
+    figdir = "assets"
+    #
+    # control, 并行控制
+    prefix = ""
+    logger_dict = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]
+    logger_level = 1  # 设置为0输出详细模式
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
+    logger = logging.getLogger("airtest_mobileauto")
+    logger.setLevel(logging.DEBUG)
+
+    # 时间参数
+    # 防止服务器时区不同, 影响对游戏的执行时间判断
+    # 设置为8则为东八区
+    mobiletime = 8
+    eastern_eight_offset = timedelta(hours=mobiletime)
+    eastern_eight_tz = timezone(eastern_eight_offset)
+    #
+    mynode = 0
+    totalnode = 1
+    multiprocessing = False
+    outputnode = -1
+    #
+    # 控制端
+    platform = sys.platform.lower()
+    # 避免和windows名字接近
+    platform = "macos" if "darwin" in platform else platform
+    #
+    LINK_dict = {}
+    # 本地docker容器
+    LINK_dict[0] = "Android:///127.0.0.1:5555"
+    LINK_dict[1] = "Android:///127.0.0.1:5565"
+    LINK_dict[2] = "Android:///127.0.0.1:5575"
+    LINK_dict[3] = "Android:///127.0.0.1:5585"
+    LINK_dict[4] = "Android:///127.0.0.1:5595"
+    # 一些特殊的测试机器
+    LINK_dict[5] = "Android:///192.168.192.10:5555"  # 服务器上的docker容器
+    LINK_dict[6] = "Android:///192.168.192.10:5565"  # 服务器上的docker容器
+    LINK_dict[7] = "ios:///http://127.0.0.1:8200"  # Iphone SE映射到本地
+    LINK_dict[8] = "ios:///http://169.254.83.56:8100"  # Iphone 11支持无线连接
+    LINK_dict[9] = "Android:///emulator-5554"  # 本地的安卓模拟器
+    LINK_dict[10] = "Android:///4e86ac13"  # usb连接的安卓手机
+
+    #
+    @classmethod
+    def Config(cls, config_file="config.in"):
+        if not os.path.exists(config_file):
+            return
+        config = configparser.ConfigParser()
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config.read_file(f)
+        #
+        cls.figdir = config.get('client', 'figdir', fallback="assets")
+        #
+        cls.mynode = config.getint('client', 'mynode', fallback=cls.mynode)
+        cls.totalnode = config.getint('client', 'totalnode', fallback=cls.totalnode)
+        cls.multiprocessing = config.getboolean('client', 'multiprocessing', fallback=cls.multiprocessing) and cls.totalnode > 1
+
+        # 读取LINK_dict，假设配置文件中存储的是字符串形式的字典
+        link_dict_str = config.get('client', 'LINK_dict', fallback=str(cls.LINK_dict), raw=True)
+        cls.LINK_dict = eval(link_dict_str)
+
+        # 更新路径属性
+        cls.LDPlayerdir = config.get('client', 'LDPlayerdir', fallback=cls.LDPlayerdir)
+        cls.BlueStackdir = config.get('client', 'BlueStackdir', fallback=cls.BlueStackdir)
+        cls.dockercontain = config.get('client', 'dockercontain', fallback=cls.dockercontain)
+        #
+        # control
+        cls.prefix = config.get('control', 'prefix', fallback=cls.prefix)
+        #
+        mobiletime = config.getint('client', 'mynode', fallback=cls.mobiletime)
+        eastern_eight_offset = timedelta(hours=mobiletime)
+        cls.eastern_eight_tz = timezone(eastern_eight_offset)
+        #
+        cls.logger_level = config.getint('control', 'logger_level', fallback=cls.logger_level)
+        level = Settings.logger_dict[Settings.logger_level]
+        logging.basicConfig(level=level, format='%(message)s')
+        logger = logging.getLogger("airtest_mobileauto")
+        logger.setLevel(level)
+        outputnode = config.getint('control', 'outputnode', fallback=cls.outputnode)
+    #
+    @classmethod
+    def info(cls, prefix=""):
+        TimeDebug(prefix+":mynode="+str(cls.mynode))
+        TimeDebug(prefix+":totalnode="+str(cls.totalnode))
+        TimeDebug(prefix+":LINK_dict="+str(cls.LINK_dict))
+
 
 # 替代基础的print函数
 
-
-def TimeECHO(info="None", end=""):
-    # 由于AirTest客户端的解释器不会输出print的命令
-    if AirtestIDE:
-        logger.warning(info)
-        return
+def loggerhead():
     # 获取当前日期和时间
-    current_datetime = datetime.now(eastern_eight_tz)
+    current_datetime = datetime.now(Settings.eastern_eight_tz)
     # 格式化为字符串（月、日、小时、分钟、秒）
     formatted_string = current_datetime.strftime("[%m-%d %H:%M:%S]")
-    modified_args = formatted_string+info
-    if len(end) > 0:
-        print(modified_args, end=end)
-    else:
-        print(modified_args)
+    return formatted_string+f"({Settings.mynode})"
 
 
-def TimeErr(info="None"):
-    TimeECHO("NNNN:"+info)
+def TimeECHO(info, *args, **kwargs):
+    if Settings.outputnode >= 0 and Settings.outputnode != Settings.mynode:
+        return
+    modified_args = loggerhead()+info
+    Settings.logger.info(modified_args)
+    return
+
+
+def TimeErr(info, *args, **kwargs):
+    if Settings.outputnode >= 0 and Settings.outputnode != Settings.mynode:
+        return
+    Settings.logger.warning(loggerhead()+info, *args, **kwargs)
+
+
+def TimeDebug(info, *args, **kwargs):
+    if Settings.outputnode >= 0 and Settings.outputnode != Settings.mynode:
+        return
+    Settings.logger.debug(loggerhead()+info, *args, **kwargs)
 
 
 def fun_name(level=1):
@@ -96,7 +191,7 @@ def fun_name(level=1):
     try:
         return str(fun.f_code.co_name)
     except:
-        return f"not found fun_name({ilevel})"
+        return ""
 
 
 def funs_name(level=2):
@@ -104,9 +199,10 @@ def funs_name(level=2):
     content = fun_name(i)
     while i < 10:
         i = i+1
-        try:
-            content = content+"."+fun_name(i)
-        except:
+        i_name = fun_name(i)
+        if len(i_name) > 0:
+            content = content + "." + i_name
+        else:
             break
     return content
 
@@ -119,7 +215,7 @@ def getstatusoutput(*args, **kwargs):
         return [1, traceback.format_exc()]
 
 
-def run_command(command=[], sleeptime=20,  prefix="", quiet=False, must_ok=False):
+def run_command(command=[], sleeptime=20,  quiet=False, must_ok=False):
     """
      执行命令
      统一采用subprocess.Popen(["exec","para","para2","..."])
@@ -127,6 +223,8 @@ def run_command(command=[], sleeptime=20,  prefix="", quiet=False, must_ok=False
     exit_code_o = 0
     command_step = 0
     # 获得运行的结果
+    if not quiet:
+        TimeECHO(funs_name())
     for i_command in command:
         if len(i_command) < 1:
             continue
@@ -135,7 +233,7 @@ def run_command(command=[], sleeptime=20,  prefix="", quiet=False, must_ok=False
         if len(trim_insert) < 1:
             continue
         if not quiet:
-            TimeECHO(prefix+"sysrun:"+trim_insert)
+            TimeECHO("  sysrun:"+trim_insert)
         #
         try:
             # os.system的容易卡，各种命令兼容性也不好，subprocess.Popen可以直接填windows快捷方式里的内容
@@ -152,9 +250,9 @@ def run_command(command=[], sleeptime=20,  prefix="", quiet=False, must_ok=False
         exit_code = result[0]
         if not quiet:
             if exit_code != 0:
-                TimeECHO(prefix+"result:"+">"*20)
+                TimeECHO("result:"+">"*20)
                 TimeECHO(result[1])
-                TimeECHO(prefix+"result:"+"<"*20)
+                TimeECHO("result:"+"<"*20)
         exit_code_o += exit_code
         if must_ok and exit_code_o != 0:
             break
@@ -165,7 +263,7 @@ def run_command(command=[], sleeptime=20,  prefix="", quiet=False, must_ok=False
     return exit_code_o
 
 
-def run_class_command(self=None, command=[], prefix="", quiet=False, must_ok=False):
+def run_class_command(self=None, command=[], quiet=False, must_ok=False):
     """
  # 执行模块内的文件
  # 以为文件中的命令可能包含self,所以把self作为输入参数
@@ -173,6 +271,8 @@ def run_class_command(self=None, command=[], prefix="", quiet=False, must_ok=Fal
     # 获得运行的结果
     exit_code_o = 0
     command_step = 0
+    if not quiet:
+        TimeECHO(funs_name())
     for i_command in command:
         # 去掉所有的空白符号看是否还有剩余命令
         trim_insert = i_command.strip()
@@ -181,7 +281,7 @@ def run_class_command(self=None, command=[], prefix="", quiet=False, must_ok=Fal
         if '#' == trim_insert[0]:
             continue
         if not quiet:
-            TimeECHO(prefix+'python: '+i_command.rstrip())
+            TimeECHO("  python: "+i_command.rstrip())
         try:
             exec(i_command)
             exit_code = 0
@@ -240,11 +340,10 @@ def getpid_win(IMAGENAME="HD-Player.exe", key="BlueStacks App Player 0"):
     return PID
 
 
-def connect_status(times=10, prefix=""):
+def connect_status(times=10):
     # png = Template_o(r"assets/tpl_target_pos.png", record_pos=(-0.28, 0.153), resolution=(960, 540), target_pos=6)
     # 同一个py文件, 只要在调用之前定义过了就可以
     png = Template(r"tpl_target_pos.png", record_pos=(-0.28, 0.153), resolution=(960, 540), target_pos=6)
-    prefix = f"{prefix} [{fun_name(2)}][{fun_name(1)}]"
     #
     for i in np.arange(times):
         try:
@@ -253,97 +352,87 @@ def connect_status(times=10, prefix=""):
         except:
             if i == times - 1:
                 traceback.print_exc()
-            TimeECHO(f"{prefix}无法连接设备,重试中{i}")
+            TimeECHO(f"{funs_name()}无法连接设备,重试中{i}")
             sleep(1)
             continue
-    TimeECHO(f"{prefix}设备失去联系")
+    TimeECHO(f"设备失去联系")
     return False
 # ........................
 
 
 def exists(*args, **kwargs):
-    prefix = ""
-    if "prefix" in kwargs:
-        prefix = kwargs["prefix"]
-        del kwargs["prefix"]
     try:
         result = exists_o(*args, **kwargs)
     except:
         result = False
-        TimeECHO(f"{prefix}  {fun_name(1)}  失败")
-        if not connect_status(prefix=prefix):
-            TimeErr(f"{prefix} {fun_name(1)}连接不上设备")
+        TimeECHO(f" {fun_name(1)}  失败")
+        if not connect_status():
+            TimeErr(f"{fun_name(1)}连接不上设备")
             return result
         sleep(1)
         try:
             result = exists_o(*args, **kwargs)
         except:
             traceback.print_exc()
-            TimeECHO(f"{prefix} 再次尝试{fun_name(1)}仍失败")
+            TimeECHO(f"再次尝试{fun_name(1)}仍失败")
             result = False
     return result
 
 
 def touch(*args, **kwargs):
-    prefix = ""
-    if "prefix" in kwargs:
-        prefix = kwargs["prefix"]
-        del kwargs["prefix"]
     try:
         result = touch_o(*args, **kwargs)
     except:
         result = False
-        TimeECHO(f"{prefix}  {fun_name(1)}  失败")
-        if not connect_status(prefix=prefix):
-            TimeErr(f"{prefix} {fun_name(1)}连接不上设备")
+        TimeECHO(f" {fun_name(1)}  失败")
+        if not connect_status():
+            TimeErr(f"{fun_name(1)}连接不上设备")
             return result
         sleep(1)
         try:
             result = touch_o(*args, **kwargs)
         except:
             traceback.print_exc()
-            TimeECHO(f"{prefix} 再次尝试{fun_name(1)}仍失败")
+            TimeECHO(f"再次尝试{fun_name(1)}仍失败")
             result = False
     return result
 
 
 def swipe(*args, **kwargs):
-    prefix = ""
-    if "prefix" in kwargs:
-        prefix = kwargs["prefix"]
-        del kwargs["prefix"]
     result = False
     try:
         result = swipe_o(*args, **kwargs)
     except:
         result = False
-        TimeECHO(f"{prefix}  {fun_name(1)}  失败")
-        if not connect_status(prefix=prefix):
-            TimeErr(f"{prefix} {fun_name(1)}连接不上设备")
+        TimeECHO(f" {fun_name(1)}  失败")
+        if not connect_status():
+            TimeErr(f"{fun_name(1)}连接不上设备")
             return result
         sleep(1)
         try:
             result = swipe_o(*args, **kwargs)
         except:
             traceback.print_exc()
-            TimeECHO(f"{prefix} 再次尝试{fun_name(1)}仍失败")
+            TimeECHO(f"再次尝试{fun_name(1)}仍失败")
             result = False
     return result
 
 
 def start_app(*args, **kwargs):
-    prefix = ""
-    if "prefix" in kwargs:
-        prefix = kwargs["prefix"]
-        del kwargs["prefix"]
+    if Settings.start_app_syskeys:
+        args_list = list(args)
+        args_list[0] = str(args_list[0])+" --pct-syskeys 0"
+        args = args_list
+        TimeECHO(f"{fun_name(1)} with {args_list[0]}")
+        Settings.start_app_syskeys = True
     try:
         result = True
         start_app_o(*args, **kwargs)
     except:
         result = False
-        TimeECHO(f"{prefix} {fun_name(1)} 失败")
-        if not connect_status(prefix=prefix):
-            TimeErr(f"{prefix} {fun_name(1)}连接不上设备")
+        TimeECHO(f"{fun_name(1)} 失败")
+        if not connect_status():
+            TimeErr(f"{fun_name(1)}连接不上设备")
             return result
         sleep(1)
         # ......
@@ -370,9 +459,10 @@ def start_app(*args, **kwargs):
                 args_list = list(args)
                 args_list[0] = str(args_list[0])+" --pct-syskeys 0"
                 args = args_list
-                TimeECHO(prefix+f"{fun_name(1)} with {args_list[0]}")
+                TimeECHO(f"{fun_name(1)} with {args_list[0]}")
+                Settings.start_app_syskeys = True
             if "device offline" in errormessgae:
-                TimeECHO(prefix+"ADB device offline")
+                TimeECHO("ADB device offline")
                 return result
         # ......
         try:
@@ -380,24 +470,20 @@ def start_app(*args, **kwargs):
             start_app_o(*args, **kwargs)
         except:
             traceback.print_exc()
-            TimeECHO(f"{prefix} 再次尝试{fun_name(1)}仍失败，检测是否没有开启ADB,或者重新启动ADB")
+            TimeECHO(f"再次尝试{fun_name(1)}仍失败，检测是否没有开启ADB,或者重新启动ADB")
             result = False
     return result
 
 
 def stop_app(*args, **kwargs):
-    prefix = ""
-    if "prefix" in kwargs:
-        prefix = kwargs["prefix"]
-        del kwargs["prefix"]
     try:
         result = True
         stop_app_o(*args, **kwargs)
     except:
         result = False
-        TimeECHO(f"{prefix} {fun_name(1)} 失败")
-        if not connect_status(prefix=prefix):
-            TimeErr(f"{prefix} {fun_name(1)}连接不上设备")
+        TimeECHO(f"{fun_name(1)} 失败")
+        if not connect_status():
+            TimeErr(f"{fun_name(1)}连接不上设备")
             return result
         sleep(1)
         # 下面仍会输出信息，所以这里少报错，让屏幕更干净
@@ -408,14 +494,14 @@ def stop_app(*args, **kwargs):
             stop_app_o(*args, **kwargs)
         except:
             traceback.print_exc()
-            TimeECHO(f"{prefix} 再次尝试{fun_name(1)}仍失败")
+            TimeECHO(f"再次尝试{fun_name(1)}仍失败")
             result = False
     return result
 
 
 def Template(*args, **kwargs):
     # 在这里修改args和kwargs，例如针对kwargs中的key进行添加内容
-    dirname = "assets"
+    dirname = Settings.figdir
     if "dirname" in kwargs:
         dirname = kwargs["dirname"]
         del kwargs["dirname"]
@@ -436,14 +522,13 @@ def Template(*args, **kwargs):
 
 
 class DQWheel:
-    def __init__(self, var_dict_file='var_dict_file.txt', prefix="", mynode=-10, totalnode=-10, 容器优化=False):
+    def __init__(self, var_dict_file='var_dict_file.txt', mynode=-10, totalnode=-10, 容器优化=False):
         self.timedict = {}
         self.容器优化 = 容器优化
         self.辅助同步文件 = "NeedRebarrier.txt"
         self.mynode = mynode
         self.totalnode = totalnode
         self.totalnode_bak = totalnode
-        self.prefix = (f"({mynode})" if mynode >= 0 else "")+prefix
         #
         self.barrierlimit = 60*20  # 同步最大时长
         self.filelist = []  # 建立的所有文件，用于后期clear
@@ -458,7 +543,7 @@ class DQWheel:
         self.stopinfo = ""
         self.connecttimes = 0
         self.connecttimesMAX = 20
-        self.独立同步文件 = self.prefix+"NeedRebarrier.txt"
+        self.独立同步文件 = f"{self.mynode}.{self.totalnode}.NeedRebarrier.txt"
         self.removefile(self.独立同步文件)
 
     def list_files(self, path):
@@ -476,7 +561,7 @@ class DQWheel:
         for name in self.list_files("."):
             text = ".tmp.barrier."
             if text == name[:len(text)]:
-                TimeECHO(self.prefix+f"清理旧文件:{name}")
+                TimeECHO(f"清理旧文件:{name}")
                 self.removefile(name)
     #
 
@@ -496,22 +581,22 @@ class DQWheel:
                 return False
 
     def removefile(self, filename):
-        TimeECHO(self.prefix+f"remove[{filename}]")
+        TimeECHO(f"remove[{filename}]")
         if os.path.exists(filename):
             try:
                 os.remove(filename)
-                TimeECHO(self.prefix+"删除["+filename+"]成功")
+                TimeECHO("删除["+filename+"]成功")
             except:
                 traceback.print_exc()
-                TimeECHO(self.prefix+"删除["+filename+"]失败")
+                TimeECHO("删除["+filename+"]失败")
                 return False
             if os.path.exists(filename):
-                TimeErr(self.prefix+"["+filename+"]还存在")
+                TimeErr("["+filename+"]还存在")
                 return False
             else:
                 return True
         else:
-            TimeECHO(self.prefix+"不存在["+filename+"]")
+            TimeECHO("不存在["+filename+"]")
             return False
 
     def removefiles(self, dir=".", head="", body="", foot=""):
@@ -540,7 +625,7 @@ class DQWheel:
         return True
 
     def touchfile(self, filename, content=""):
-        TimeECHO(self.prefix+f"touchfile[{filename}]")
+        TimeECHO(f"touchfile[{filename}]")
         content = str(content)
         if len(content) > 0:
             self.removefile(filename)
@@ -550,7 +635,7 @@ class DQWheel:
         end = ""
         if len(content) > 0:
             end = f"with ({content})"
-        TimeECHO(self.prefix+f"创建[{filename}] {end} 成功")
+        TimeECHO(f"创建[{filename}] {end} 成功")
 
     def touchstopfile(self, content="stop"):
         self.touchfile(self.stopfile, content=content)
@@ -567,17 +652,17 @@ class DQWheel:
 
     def readfile(self, filename):
         if not os.path.exists(filename):
-            TimeECHO(self.prefix+"不存在["+filename+"]")
+            TimeECHO("不存在["+filename+"]")
             return [""]
         try:
             f = open(filename, 'r', encoding='utf-8')
             content = f.readlines()
             f.close()
-            TimeECHO(self.prefix+"Read["+filename+"]成功")
+            TimeECHO("Read["+filename+"]成功")
             return content
         except:
             traceback.print_exc()
-            TimeECHO(self.prefix+"Read["+filename+"]失败")
+            TimeECHO("Read["+filename+"]失败")
             return [""]
 
     #
@@ -587,31 +672,27 @@ class DQWheel:
         else:
             同步文件 = self.辅助同步文件 if self.totalnode_bak > 1 else self.独立同步文件
         if self.存在同步文件(同步文件):
-            TimeECHO(f"{self.prefix}不再创建[{同步文件}]")
+            TimeECHO(f"不再创建[{同步文件}]")
             return True
-        content = self.prefix+":"+funs_name() if len(content) == 0 else content
-        TimeECHO(f">{self.prefix}"*10)
-        TimeECHO(self.prefix+f"创建同步文件[{同步文件}]")
+        content = loggerhead()+funs_name() if len(content) == 0 else content
+        TimeECHO(f"**** TOUCH **** 创建同步文件[{同步文件}]")
         self.touchfile(同步文件, content)
-        TimeECHO(f"<{self.prefix}"*10)
-        # 该文件不添加到列表,仅在成功同步后才删除
-        # self.filelist.append(self.辅助同步文件)
         return True
 
     def 存在同步文件(self, 同步文件=""):
         if len(同步文件) > 1:
             if os.path.exists(同步文件):
-                TimeECHO(self.prefix+f"存在同步文件[{同步文件}]")
+                TimeECHO(f"存在同步文件[{同步文件}]")
                 return True
             else:
                 return False
         # 只要是总结点数大于1,无论当前是否组队都判断辅助同步文件
         if self.totalnode_bak > 1 and os.path.exists(self.辅助同步文件):
-            TimeECHO(self.prefix+f"存在辅助同步文件[{self.辅助同步文件}]")
+            TimeECHO(f"存在辅助同步文件[{self.辅助同步文件}]")
             return True
         # 每个进程的独立文件不同,不同节点不会误判
         if os.path.exists(self.独立同步文件):
-            TimeECHO(self.prefix+f"存在独立同步文件[{self.独立同步文件}]")
+            TimeECHO(f"存在独立同步文件[{self.独立同步文件}]")
             return True
         return False
 
@@ -626,20 +707,19 @@ class DQWheel:
         if totalnode < 2:
             return True
         if self.存在同步文件():
-            TimeErr(self.prefix+f"同步{name}.检测到同步文件")
+            TimeErr(f"同步{name}.检测到同步文件")
             return True
         filelist = []
         ionode = mynode == 0 or totalnode == 1
         #
         if ionode:
-            TimeECHO(self.prefix+"."*10)
-            TimeECHO(self.prefix+f">>>>>同步开始>{name}")
+            TimeECHO(f"BARRIERNODE [{name}]")
         #
         for i in np.arange(1, totalnode):
             filename = f".tmp.barrier.{i}.{name}.txt"
             if ionode:
                 if os.path.exists(filename):
-                    TimeErr(self.prefix+"完蛋,barriernode之前就存在同步文件")
+                    TimeErr("完蛋,barriernode之前就存在同步文件")
                 self.touchfile(filename)
             filelist.append(filename)
             self.filelist.append(filename)
@@ -657,11 +737,11 @@ class DQWheel:
                     if not barrieryes:
                         break
                 if barrieryes:
-                    TimeECHO(self.prefix+"."*10)
-                    TimeECHO(self.prefix+f"<<<<<同步完成>{name}")
+                    TimeECHO("."*10)
+                    TimeECHO(f"BARRIERNODE 同步完成[{name}]")
                     return True
                 if times % 3 == 0:
-                    TimeECHO(self.prefix+f"同步{name}检测中")
+                    TimeECHO(f"BARRIERNODE ...同步检测[{name}]")
             else:
                 if self.removefile(filelist[mynode-1]):
                     return True
@@ -670,7 +750,7 @@ class DQWheel:
             for i in filelist:
                 self.removefile(i)
             # 不清除也没事,start时会自动清除
-        TimeErr(self.prefix+f":barriernode>{name}<同步失败,创建同步文件")
+        TimeErr(f"barriernode>{name}<同步失败,创建同步文件")
         self.touch同步文件()
         return False
     # 读取变量
@@ -682,7 +762,7 @@ class DQWheel:
         import pickle
         var_dict = {}
         if os.path.exists(var_dict_file):
-            TimeECHO(self.prefix+"读取"+var_dict_file)
+            TimeECHO("读取"+var_dict_file)
             with open(var_dict_file, 'rb') as f:
                 var_dict = pickle.load(f)
         return var_dict
@@ -735,10 +815,10 @@ class DQWheel:
         strinfo = f"第[{self.calltimes_dict[strinfo]}]次寻找{strinfo}"
         length = len(判断元素集合)
         for idx, i in enumerate(判断元素集合):
-            TimeECHO(self.prefix+f"{strinfo}({idx+1}/{length}):{i}")
-            pos = exists(i, prefix=self.prefix)
+            TimeECHO(f"{strinfo}({idx+1}/{length}):{i}")
+            pos = exists(i)
             if pos:
-                TimeECHO(self.prefix+f"{strinfo}成功:{i}")
+                TimeECHO(f"{strinfo}成功:{i}")
                 # 交换元素位置
                 判断元素集合[0], 判断元素集合[idx] = 判断元素集合[idx], 判断元素集合[0]
                 if savepos:
@@ -750,7 +830,7 @@ class DQWheel:
         savepos = savepos and len(keystr) > 0 and self.savepos
         #
         if self.connecttimes > self.connecttimesMAX:  # 大概率连接失败了,判断一下
-            if connect_status(times=max(2, self.connecttimesMAX-self.connecttimes+10), prefix=self.prefix):  # 出错后降低判断的次数
+            if connect_status(times=max(2, self.connecttimesMAX-self.connecttimes+10)):  # 出错后降低判断的次数
                 self.connecttimes = 0
             else:
                 self.connecttimes = self.connecttimes+1
@@ -760,15 +840,15 @@ class DQWheel:
         if savepos:
             if keystr in self.var_dict.keys():
                 touch(self.var_dict[keystr])
-                TimeECHO(self.prefix+"touch (saved) "+keystr)
+                TimeECHO("touch (saved) "+keystr)
                 sleep(0.1)
                 return True
-        pos = exists(png, prefix=self.prefix)
+        pos = exists(png)
         if pos:
             self.connecttimes = 0
             touch(pos)
             if len(keystr) > 0:
-                TimeECHO(self.prefix+"touch "+keystr)
+                TimeECHO("touch "+keystr)
             if savepos:
                 self.var_dict[keystr] = pos
                 self.save_dict(self.var_dict, self.var_dict_file)
@@ -776,7 +856,7 @@ class DQWheel:
         else:
             self.connecttimes = self.connecttimes+1
             if len(keystr) > 0:
-                TimeECHO(self.prefix+"NotFound "+keystr)
+                TimeECHO("NotFound "+keystr)
             return False
 
     #
@@ -791,31 +871,31 @@ class DQWheel:
         while self.existsTHENtouch(png=png, keystr=keystr+f".{runloop}", savepos=savepos):
             if limit > 0:
                 if self.timelimit(timekey=timekey, limit=limit, init=False):
-                    TimeErr(self.prefix+"TOUCH"+keystr+"超时.....")
+                    TimeErr("TOUCH"+keystr+"超时.....")
                     break
             if runloop > loop:
-                TimeErr(self.prefix+"TOUCH"+keystr+"超LOOP.....")
+                TimeErr("TOUCH"+keystr+"超LOOP.....")
                 break
             sleep(10)
             runloop = runloop+1
         #
-        if exists(png, prefix=self.prefix):
-            TimeErr(self.prefix+keystr+"图片仍存在")
+        if exists(png):
+            TimeErr(keystr+"图片仍存在")
             return True
         else:
             return False
     # 这仅针对辅助模式,因此同步文件取self.辅助同步文件
 
     def 必须同步等待成功(self, mynode, totalnode, 同步文件="", sleeptime=60*5):
-        同步文件 = 同步文件 if len(同步文件) > 1 else self.辅助同步文件+funs_name()+".txt"
+        同步文件 = 同步文件 if len(同步文件) > 1 else self.辅助同步文件
         if totalnode < 2:
             self.removefile(同步文件)
             return True
         if self.存在同步文件(同步文件):  # 单进程各种原因出错时,多进程无法同步时
             if self.readstopfile():
                 return
-            TimeECHO(self.prefix+"-."*20)
-            TimeECHO(self.prefix+f"存在同步文件({同步文件}),第一次尝试同步同步程序")
+            TimeECHO(f"---{mynode}---"*5)
+            TimeECHO(f"存在同步文件({同步文件}),第一次尝试同步程序")
             start_timestamp = int(time.time())
             # 第一次尝试同步
             self.同步等待(mynode, totalnode, 同步文件, sleeptime)
@@ -824,41 +904,40 @@ class DQWheel:
                 if self.readstopfile():
                     return
                 waitminu = int(min(59, 5*totalnode))
-                TimeErr(self.prefix+f"仍然存在同步文件,进行{waitminu}分钟一次的循环")
+                TimeErr(f"仍然存在同步文件,进行{waitminu}分钟一次的循环")
                 hour, minu, sec = self.time_getHMS()
                 minu = minu % waitminu
                 if minu > totalnode:
                     sleepsec = (waitminu-minu)*60-sec
-                    TimeECHO(self.prefix+f"等待{sleepsec}s")
+                    TimeECHO(f"等待{sleepsec}s")
                     sleep(sleepsec)
                     continue
                 end_timestamp = int(time.time())
                 sleepNtime = max(10, sleeptime-(end_timestamp-start_timestamp))+mynode*5
                 self.同步等待(mynode, totalnode, 同步文件, sleepNtime)
-            TimeECHO(self.prefix+"-+"*20)
+            TimeECHO(f"+++{mynode}+++"*5)
         else:
             return True
         return not self.存在同步文件(同步文件)
 
     # 这仅针对辅助模式,因此同步文件取self.辅助同步文件
     def 同步等待(self, mynode, totalnode, 同步文件="", sleeptime=60*5):
-        同步文件 = 同步文件 if len(同步文件) > 1 else self.辅助同步文件
-        if totalnode < 2:
-            self.removefile(同步文件)
-            return True
-        ionode = mynode == 0 or totalnode == 1
         # 同步等待是为了处理,程序因为各种原因无法同步,程序出粗.
         # 重新校验各个进程
         # Step1. 检测到主文件{同步文件} 进入同步状态
         # Step2. 确定所有进程均检测到主文件状态
         # Step3. 检测其余进程是否都结束休息状态
-        prefix = f"({mynode})"
-        主辅节点通信完成 = False
-        发送信标 = True
         # 一个节点、一个节点的check
+        #
+        同步文件 = 同步文件 if len(同步文件) > 1 else self.辅助同步文件
+        ionode = mynode == 0 or totalnode == 1
+        if totalnode < 2:
+            self.removefile(同步文件)
+            return True
         if not os.path.exists(同步文件):
             return True
-        TimeECHO(self.prefix+":进入同步等待")
+        #
+        TimeECHO("进入同步等待")
         同步成功 = True
         name = 同步文件
         全部通信成功文件 = 同步文件+".同步完成.txt"
@@ -872,19 +951,13 @@ class DQWheel:
         for i in np.arange(1, totalnode):
             if mynode > 0 and mynode != i:
                 continue
-            TimeECHO(self.prefix+f":进行同步循环{i}")
+            TimeECHO(f"进行同步循环{i}")
             sleep(mynode*5)
-            if not os.path.exists(同步文件):
-                TimeECHO(self.prefix+f"不存在同步文件{同步文件},退出")
-                return True
-            if self.readstopfile():
-                return
             #
             主辅通信成功 = False
             filename = f".tmp.barrier.{i}.{name}.in.txt"
             if ionode:
                 hour, minu, sec = self.time_getHMS()
-                # myrandom=str(random.randint(totalnode+100, 500))+f"{hour}{minu}{sec}"
                 myrandom = f"{i}{totalnode}{hour}{minu}{sec}"
                 self.touchfile(filename, content=myrandom)
                 lockfile = f".tmp.barrier.{myrandom}.{i}.{name}.in.txt"
@@ -895,11 +968,6 @@ class DQWheel:
                 # 开始通信循环
                 主辅通信成功 = False
                 for sleeploop in np.arange(60*5):
-                    if not os.path.exists(同步文件):
-                        TimeECHO(self.prefix+f"不存在同步文件{同步文件},退出")
-                        return True
-                    if self.readstopfile():
-                        return
                     if not os.path.exists(lockfile):
                         主辅通信成功 = True
                         self.removefile(filename)
@@ -908,96 +976,89 @@ class DQWheel:
                 # 判断通信成功与否
                 同步成功 = 同步成功 and 主辅通信成功
                 if 同步成功:
-                    TimeECHO(prefix+f"同步{i}成功")
+                    TimeECHO(f"同步{i}成功")
                 else:
-                    TimeECHO(prefix+f"同步{i}失败")
+                    TimeECHO(f"同步{i}失败")
                     self.touchfile(全部通信失败文件)
-                    return False
+                    break
                 continue
             else:
                 同步成功 = False
                 # 辅助节点,找到特定,就循环5分钟
-                myrandom = "initial"
-                myrandom_new = myrandom
+                myrandom = ""
                 lockfile = f".tmp.barrier.{myrandom}.{i}.{name}.in.txt"
-                TimeECHO(self.prefix+f":进行同步判定{i}")
+                TimeECHO(f"进行同步判定{i}")
                 sleeploop = 0
                 for sleeploop in np.arange(60*5*(totalnode-1)):
-                    if not os.path.exists(同步文件):
-                        TimeECHO(self.prefix+f"不存在同步文件{同步文件},退出")
-                        return True
-                    if self.readstopfile():
-                        return
                     # 主辅通信循环
-                    if os.path.exists(filename):
-                        if sleeploop % 5 == 0:
-                            myrandom_new = self.readfile(filename)[0].strip()
-                    if len(myrandom_new) > 0 and myrandom_new != myrandom:
-                        myrandom = myrandom_new
-                        TimeECHO(prefix+f"同步文件更新myrandom={myrandom}")
+                    if os.path.exists(filename) and not 主辅通信成功:
+                        myrandom = self.readfile(filename)[0].strip()
+                    if len(myrandom) > 0 and not 主辅通信成功:
                         lockfile = f".tmp.barrier.{myrandom}.{i}.{name}.in.txt"
+                        TimeECHO(f"同步文件更新 lockfile={lockfile}")
                         sleep(10)
                         主辅通信成功 = self.removefile(lockfile)
-                    if not 主辅通信成功 and myrandom != "initial":
-                        TimeECHO(prefix+f"还存在{lockfile}")
-                        主辅通信成功 = self.removefile(lockfile)
-                    # 避免存在旧文件没有删除的情况,这里不断读取å
+                    # 
+                    # 本节点通信成功，开始等待其他节点
                     if 主辅通信成功:
                         hour, minu, sec = self.time_getHMS()
                         if sleeploop % 10 == 0:
-                            TimeECHO(prefix+f"正在寻找全部通信成功文件>{全部通信成功文件}<")
+                            TimeECHO(f"本节点通信成功{sleeploop}，正在寻找>{全部通信成功文件}<")
                         if os.path.exists(全部通信成功文件):
-                            TimeECHO(prefix+f"监测到全部通信成功文件{全部通信成功文件}")
+                            TimeECHO(f"检测到全部通信成功文件{全部通信成功文件}")
                             同步成功 = True
                             break
-                        if os.path.exists(全部通信失败文件):
-                            TimeErr(prefix+f"监测到全部通信失败文件{全部通信失败文件}")
-                            return False
+                    if os.path.exists(全部通信失败文件):
+                        TimeErr(f"监测到全部通信失败文件{全部通信失败文件}")
+                        同步成功 = False
+                        break
                     sleep(1)
         # 到此处完成
         # 因为是逐一进行同步的,所以全部通信成功文件只能由最后一个node负责删除
+        if not 同步成功:
+            self.touch同步文件(全部通信失败文件)
         同步成功 = 同步成功 and not os.path.exists(全部通信失败文件)
         if 同步成功:
-            TimeECHO(prefix+"同步等待成功")
+            TimeECHO("同步等待成功")
             file_sleeptime = ".tmp.barrier.sleeptime.txt"
             if ionode:
-                TimeECHO(prefix+f"存储sleeptime到[{file_sleeptime}]")
+                TimeECHO(f"存储sleeptime到[{file_sleeptime}]")
                 self.touchfile(filename=file_sleeptime, content=str(sleeptime))
-                TimeECHO(prefix+"开始删建文件")
+                TimeECHO("开始删建文件")
                 self.clean文件()
                 self.touchfile(全部通信成功文件)
                 self.removefile(同步文件)
                 self.removefile(全部通信失败文件)
             else:
-                TimeECHO(prefix+"开始读取sleeptime")
+                TimeECHO("开始读取sleeptime")
                 sleeptime_read = self.readfile(file_sleeptime)[0].strip()
                 if len(sleeptime_read) > 0:
                     sleeptime = int(sleeptime_read)
         else:
-            TimeErr(prefix+"同步等待失败")
+            TimeErr("同步等待失败")
             return False
 
         #
         self.barriernode(mynode, totalnode, "同步等待结束")
-        TimeECHO(self.prefix+f"需要sleep{sleeptime}")
+        TimeECHO(f"需要sleep{sleeptime}")
         sleep(sleeptime)
         return not os.path.exists(同步文件)
 
     def time_getHM(self):
-        current_time = datetime.now(eastern_eight_tz)
+        current_time = datetime.now(Settings.eastern_eight_tz)
         hour = current_time.hour
         minu = current_time.minute
         return hour, minu
 
     def time_getHMS(self):
-        current_time = datetime.now(eastern_eight_tz)
+        current_time = datetime.now(Settings.eastern_eight_tz)
         hour = current_time.hour
         minu = current_time.minute
         sec = current_time.second
         return hour, minu, sec
 
     def time_getYHMS(self):
-        current_time = datetime.now(eastern_eight_tz)
+        current_time = datetime.now(Settings.eastern_eight_tz)
         year = current_time.hour
         hour = current_time.hour
         minu = current_time.minute
@@ -1005,7 +1066,7 @@ class DQWheel:
         return year, hour, minu, sec
 
     def time_getweek(self):
-        return datetime.now(eastern_eight_tz).weekday()
+        return datetime.now(Settings.eastern_eight_tz).weekday()
     # return 0 - 6
 
     def hour_in_span(self, startclock=0, endclock=24, hour=None):
@@ -1031,7 +1092,7 @@ class DQWheel:
         return left
 
     def stoptask(self):
-        TimeErr(self.prefix+f"停止Airtest控制,停止信息"+self.stopinfo)
+        TimeErr(f"停止Airtest控制,停止信息"+self.stopinfo)
         return
         # 该命令无法结束,直接return吧
         # sys.exit()
@@ -1045,7 +1106,7 @@ class DQWheel:
         PID = os.getpid()
         filename = "init_node."+str(totalnode)+"."+str(PID)+".txt"
         self.touchfile(filename)
-        TimeECHO(self.prefix+"自动生成node中:"+filename)
+        TimeECHO("自动生成node中:"+filename)
         PID_dict = {}
         for i in np.arange(60):
             for name in os.listdir("."):
@@ -1056,7 +1117,7 @@ class DQWheel:
             sleep(5)
         if len(PID_dict) != totalnode:
             self.removefile(filename)
-            TimeECHO(self.prefix+"文件数目不匹配")
+            TimeECHO("文件数目不匹配")
             return node
         #
         strname = np.array(list(PID_dict.keys()))
@@ -1065,16 +1126,16 @@ class DQWheel:
             PIDarr[i] = int(strname[i].split(".")[2])
         PIDarr = np.sort(PIDarr)
         for i in np.arange(PIDarr.size):
-            TimeECHO(self.prefix+"i="+str(i)+". PID="+str(PID)+". PIDarr[i]="+str(PIDarr[i]))
+            TimeECHO("i="+str(i)+". PID="+str(PID)+". PIDarr[i]="+str(PIDarr[i]))
             if PID == PIDarr[i]:
                 node = i
 
         if node < 0:
-            TimeECHO(self.prefix+"node < 0")
+            TimeECHO("node < 0")
             self.removefile(filename)
             return node
         #
-        TimeECHO(self.prefix+"mynode:"+str(node))
+        TimeECHO("mynode:"+str(node))
         if self.barriernode(node, totalnode, "audfonode"):
             self.removefile(filename)
             return node
@@ -1109,19 +1170,12 @@ class deviceOB:
         elif "win" in self.控制端 and "127.0.0.1" in self.LINK:
             # 可以通过cmd控制模拟器: f"start /MIN C:\Progra~1\BlueStacks_nxt\HD-Player.exe --instance {instance}" (windows通用，不运行期间可彻底关闭模拟器，省电)
             # 也可以adb reboot控制模拟器(安卓通用，但是BlueStack模拟器不支持)
-            # 通过是否运行多开管理，来判断是否使用模拟器
-            # LD模拟器支持adb reboot重启模拟器
-            BluePID = 0
-            LdPID = 0
             # 模拟器启动后的窗口的名字
+            # 如果配置不好就用默认的"RemoteAndroid"
             self.win_WindowsName = []
             # 模拟器内部的名字(快捷方式中可以查看到)
             self.win_InstanceName = []
-            if os.path.exists(os.path.join(BlueStackdir, "HD-MultiInstanceManager.exe")):
-                BluePID = getpid_win(IMAGENAME="HD-MultiInstanceManager.exe", key="BlueStacks")
-            if os.path.exists(os.path.join(LDPlayerdir, "dnmultiplayer.exe")):
-                LdPID = getpid_win(IMAGENAME="dnmultiplayer.exe", key="dnmultiplayer")
-            if BluePID > 0:
+            if os.path.exists(os.path.join(Settings.BlueStackdir, "HD-MultiInstanceManager.exe")):
                 self.客户端 = "win_BlueStacks"
                 Instance = ["", "1", "2", "3", "4", "5"]
                 for i in Instance:
@@ -1133,7 +1187,7 @@ class deviceOB:
                         self.win_WindowsName.append(f"BlueStacks App Player {i}")
                         self.win_InstanceName.append(f"Nougat32_{i}")
                 #
-            elif LdPID > 0:
+            elif os.path.exists(os.path.join(Settings.LDPlayerdir, "dnmultiplayer.exe")):
                 self.客户端 = "win_LD"
                 # LD多开模拟器的ID, 通过添加桌面快捷方式可以获取
                 Instance = ["0", "1", "2", "3", "4", "5"]
@@ -1143,34 +1197,30 @@ class deviceOB:
                         self.win_WindowsName.append(f"雷电模拟器")
                     else:
                         self.win_WindowsName.append(f"雷电模拟器-{i}")
-                # LDPlayer 也支持 self.客户端="FULL_ADB" 的模式
-                # 但是需要提前开启模拟器
             else:
                 self.客户端 = "RemoteAndroid"
-        elif "linux" in self.控制端 and "127.0.0.1" in self.LINK:  # Linux + docker
-            if os.path.exists("/home/cndaqiang/builddocker/redroid/8arm0"):
-                self.客户端 = "lin_docker"
+        elif "linux" in self.控制端 and len(Settings.dockercontain) > 0:  # Linux + docker
+            self.客户端 = "lin_docker"
         elif len(self.LINKport) > 0:  # 通过网络访问的安卓设备
             self.客户端 = "RemoteAndroid"
         else:
             self.客户端 = "USBAndroid"
         #
         self.mynode = mynode
-        self.prefix = f"({self.mynode})"
         self.totalnode = totalnode
         #
         self.实体终端 = False
         self.实体终端 = "mac" in self.控制端 or "ios" in self.设备类型
         self.容器优化 = "linux" in self.控制端 and "android" in self.设备类型
         #
-        TimeECHO(self.prefix+f"控制端({self.控制端})")
-        TimeECHO(self.prefix+f"客户端({self.客户端})")
-        TimeECHO(self.prefix+f"ADB =({self.adb_path})")
-        TimeECHO(self.prefix+f"LINK({self.LINK})")
-        TimeECHO(self.prefix+f"LINKhead({self.LINKhead})")
-        TimeECHO(self.prefix+f"LINKtype({self.LINKtype})")
-        TimeECHO(self.prefix+f"LINKURL({self.LINKURL})")
-        TimeECHO(self.prefix+f"LINKport({self.LINKport})")
+        TimeECHO(f"控制端({self.控制端})")
+        TimeECHO(f"客户端({self.客户端})")
+        TimeECHO(f"ADB =({self.adb_path})")
+        TimeECHO(f"LINK({self.LINK})")
+        TimeECHO(f"LINKhead({self.LINKhead})")
+        TimeECHO(f"LINKtype({self.LINKtype})")
+        TimeECHO(f"LINKURL({self.LINKURL})")
+        TimeECHO(f"LINKport({self.LINKport})")
         #
         self.连接设备()
 
@@ -1179,35 +1229,35 @@ class deviceOB:
         # 尝试连接timesMax+1次,当前是times次
         """
         self.device = False
-        TimeECHO(self.prefix+f"{self.LINK}:开始第{times}/{timesMax+1}次连接")
+        TimeECHO(f"{self.LINK}:开始第{times}/{timesMax+1}次连接")
         try:
             self.device = connect_device(self.LINK)
             if self.device:
-                TimeECHO(self.prefix+f"{self.LINK}:链接成功")
+                TimeECHO(f"{self.LINK}:链接成功")
                 return True
         except:
             if times == timesMax+1:
                 traceback.print_exc()
-            TimeErr(self.prefix+f"{self.LINK}:链接失败")
+            TimeErr(f"{self.LINK}:链接失败")
             if "ios" in self.设备类型:
-                TimeECHO(self.prefix+"重新插拔数据线")
+                TimeECHO("重新插拔数据线")
         #
         if times <= timesMax:
-            TimeECHO(self.prefix+f"{self.LINK}:链接失败,重启设备再次连接")
+            TimeECHO(f"{self.LINK}:链接失败,重启设备再次连接")
             self.启动设备()
             return self.连接设备(times+1, timesMax)
         else:
-            TimeErr(self.prefix+f"{self.LINK}:链接失败,无法继续")
+            TimeErr(f"{self.LINK}:链接失败,无法继续")
             return False
 
     def 启动设备(self):
         command = []
-        TimeECHO(self.prefix+f"尝试启动设备中...")
+        TimeECHO(f"尝试启动设备中...")
         if self.客户端 == "ios":
             if "mac" in self.控制端:
-                TimeECHO(self.prefix+f"测试本地IOS打开中")
+                TimeECHO(f"测试本地IOS打开中")
             else:
-                TimeECHO(self.prefix+f"当前模式无法打开IOS")
+                TimeECHO(f"当前模式无法打开IOS")
                 return False
             # 获得运行的结果
             result = getstatusoutput("tidevice list")
@@ -1220,21 +1270,21 @@ class deviceOB:
                 command.append([f"tidevice $(cat para.txt) wdaproxy -B  com.facebook.WebDriverAgentRunner.cndaqiang.xctrunner --port {self.LINKport} > tidevice.result.txt 2 > &1 &"])
                 sleep(20)
             else:
-                TimeErr(self.prefix+": tidevice list 无法找到IOS设备重启失败")
+                TimeErr(" tidevice list 无法找到IOS设备重启失败")
                 return False
         # android
         elif self.客户端 == "win_BlueStacks":
             instance = self.win_InstanceName[self.mynode]
-            command.append([os.path.join(BlueStackdir, "HD-Player.exe"), "--instance", instance])
+            command.append([os.path.join(Settings.BlueStackdir, "HD-Player.exe"), "--instance", instance])
         elif self.客户端 == "win_LD":
             instance = self.win_InstanceName[self.mynode]
-            command.append([os.path.join(LDPlayerdir, "dnplayer.exe"), instance])
+            command.append([os.path.join(Settings.LDPlayerdir, "dnplayer.exe"), instance])
         elif self.客户端 == "FULL_ADB":
             # 通过reboot的方式可以实现重启和解决资源的效果
             command.append([self.adb_path, "connect", self.LINKURL])
             command.append([self.adb_path, "-s", self.LINKURL, "reboot"])
         elif self.客户端 == "lin_docker":
-            虚拟机ID = f"androidcontain{self.mynode}"
+            虚拟机ID = f"{Settings.dockercontain}{self.mynode}"
             command.append(["docker", "restart", 虚拟机ID])
         elif self.客户端 == "RemoteAndroid":
             # 热重启系统
@@ -1246,29 +1296,29 @@ class deviceOB:
             if self.LINKURL in result[1]:
                 command.append([self.adb_path, "-s", self.LINKURL, "reboot"])
             else:
-                TimeECHO(self.prefix+f"没有找到USB设备{self.LINKURL}\n"+result[1])
+                TimeECHO(f"没有找到USB设备{self.LINKURL}\n"+result[1])
                 return False
         else:
-            TimeECHO(self.prefix+f"未知设备类型")
+            TimeECHO(f"未知设备类型")
             return False
         # 开始运行
-        exit_code = run_command(command=command, prefix=self.prefix)
+        exit_code = run_command(command=command)
         if exit_code == 0:
-            TimeECHO(self.prefix+f"启动成功")
+            TimeECHO(f"启动成功")
             return True
         else:
-            TimeErr(self.prefix+f"启动失败")
+            TimeErr(f"启动失败")
             return False
 
     def 关闭设备(self):
         command = []
-        TimeECHO(self.prefix+f"尝试关闭设备中...")
+        TimeECHO(f"尝试关闭设备中...")
         if self.客户端 == "ios":
             if "mac" in self.控制端:
-                TimeECHO(self.prefix+f"测试本地IOS关闭中")
+                TimeECHO(f"测试本地IOS关闭中")
                 command.append(["tidevice", "reboot"])
             else:
-                TimeECHO(self.prefix+f"当前模式无法关闭IOS")
+                TimeECHO(f"当前模式无法关闭IOS")
                 return False
         # android
         elif self.客户端 == "win_BlueStacks":
@@ -1296,7 +1346,7 @@ class deviceOB:
             command.append([self.adb_path, "connect", self.LINKURL])
             command.append([self.adb_path, "-s", self.LINKURL, "reboot"])
         elif self.客户端 == "lin_docker":
-            虚拟机ID = f"androidcontain{self.mynode}"
+            虚拟机ID = f"{Settings.dockercontain}{self.mynode}"
             command.append(["docker", "stop", 虚拟机ID])
         elif self.客户端 == "RemoteAndroid":
             # 热重启系统
@@ -1308,36 +1358,35 @@ class deviceOB:
             if self.LINKURL in result[1]:
                 command.append([self.adb_path, "-s", self.LINKURL, "reboot"])
             else:
-                TimeECHO(self.prefix+f"没有找到USB设备{self.LINKURL}\n"+result[1])
+                TimeECHO(f"没有找到USB设备{self.LINKURL}\n"+result[1])
                 return False
         else:
-            TimeECHO(self.prefix+f"未知设备类型")
+            TimeECHO(f"未知设备类型")
             return False
         # 开始运行
-        exit_code = run_command(command=command, prefix=self.prefix, sleeptime=60)
+        exit_code = run_command(command=command, sleeptime=60)
         if exit_code == 0:
-            TimeECHO(self.prefix+f"关闭成功")
+            TimeECHO(f"关闭成功")
             return True
         else:
-            TimeECHO(self.prefix+f"关闭失败")
+            TimeECHO(f"关闭失败")
             return False
 
     def 重启设备(self, sleeptime=0):
-        TimeECHO(self.prefix+f"重新启动({self.LINK})")
+        TimeECHO(f"重新启动({self.LINK})")
         self.关闭设备()
         sleeptime = max(10, sleeptime-60)
         printtime = max(30, sleeptime/10)
-        TimeECHO(self.prefix+"sleep %d min" % (sleeptime/60))
+        TimeECHO("sleep %d min" % (sleeptime/60))
         for i in np.arange(int(sleeptime/printtime)):
-            TimeECHO(self.prefix+f"...taskkill_sleep: {i}", end='\r')
+            TimeECHO(f"...taskkill_sleep: {i}", end='\r')
             sleep(printtime)
         self.启动设备()
         self.连接设备()
 
 
 class appOB:
-    def __init__(self, prefix="", APPID="", big=False, device=None):
-        self.prefix = prefix
+    def __init__(self, APPID="", big=False, device=None):
         self.APPID = APPID
         self.Activity = None if "/" not in self.APPID else self.APPID.split("/")[1]
         self.APPID = self.APPID.split("/")[0]
@@ -1347,20 +1396,20 @@ class appOB:
 
     def 打开APP(self):
         if self.Activity:
-            TimeECHO(self.prefix+f"打开APP[{self.APPID}/{self.Activity}]中")
+            TimeECHO(f"打开APP[{self.APPID}/{self.Activity}]中")
             启动成功 = start_app(self.APPID, self.Activity)
         else:
-            TimeECHO(self.prefix+f"打开APP[{self.APPID}]中")
-            启动成功 = start_app(self.APPID, prefix=self.prefix)
+            TimeECHO(f"打开APP[{self.APPID}]中")
+            启动成功 = start_app(self.APPID)
         if not 启动成功:
-            TimeErr(self.prefix+"打开失败,可能失联")
+            TimeErr("打开失败,可能失联")
             return False
         else:
             sleep(20)
         return True
 
     def 重启APP(self, sleeptime=0):
-        TimeECHO(self.prefix+f"重启APP中")
+        TimeECHO(f"重启APP中")
         self.关闭APP()
         sleep(10)
         sleeptime = max(10, sleeptime)  # 这里的单位是s
@@ -1368,27 +1417,78 @@ class appOB:
         if sleeptime > 60*60 and self.device:  # >1h
             self.device.重启设备(sleeptime)
         else:
-            TimeECHO(self.prefix+"sleep %d min" % (sleeptime/60))
+            TimeECHO("sleep %d min" % (sleeptime/60))
             nstep = int(sleeptime/printtime)
             for i in np.arange(nstep):
-                TimeECHO(self.prefix+f"...taskkill_sleep: {i}/{nstep}", end='\r')
+                TimeECHO(f"...taskkill_sleep: {i}/{nstep}", end='\r')
                 sleep(printtime)
-        TimeECHO(self.prefix+f"打开程序")
+        TimeECHO(f"打开程序")
         if self.打开APP():
             if self.big:
-                TimeECHO(self.prefix+f"打开程序成功,sleep60*2")
+                TimeECHO(f"打开程序成功,sleep60*2")
                 sleep(60*2)
             return True
         else:
-            TimeECHO(self.prefix+f"打开程序失败")
+            TimeECHO(f"打开程序失败")
             return False
     #
 
     def 关闭APP(self):
-        TimeECHO(self.prefix+f"关闭APP[{self.APPID}]中")
-        if not stop_app(self.APPID, prefix=self.prefix):
-            TimeErr(self.prefix+"关闭失败,可能失联")
+        TimeECHO(f"关闭APP[{self.APPID}]中")
+        if not stop_app(self.APPID):
+            TimeErr("关闭失败,可能失联")
             return False
         else:
             sleep(5)
             return True
+
+
+class TaskManager:
+    def __init__(self, config_file, task_class, method_name, *args, **kwargs):
+        self.task_class = task_class
+        self.method_name = method_name
+        self.args = args
+        self.kwargs = kwargs
+        self.config_file = config_file
+        # 初次读入参数，用于确定单/多进程执行
+        Settings.Config(self.config_file)
+        Settings.info("Task_init")
+
+    def execute(self):
+        TimeDebug("task execute"+str(Settings.multiprocessing))
+        if Settings.multiprocessing:
+            self.multi_execute()
+        else:
+            self.single_execute()
+
+    def single_execute(self, mynode=None):
+        # 子进程重新配置参数
+        Settings.Config(self.config_file)
+        #
+        if mynode != None:
+            TimeDebug("input mynode=%s", mynode)
+            Settings.mynode = mynode
+        else:
+            mynode = Settings.mynode
+            TimeDebug("reD mynode=%s", mynode)
+        Settings.info("single_exe")
+        #
+        TimeDebug("single_execute starting with mynode=%s", mynode)
+        try:
+            task_instance = self.task_class(*self.args, **self.kwargs)
+            method = getattr(task_instance, self.method_name)
+            method()
+        except:
+            TimeErr("Error in single_execute with mynode=%s", mynode)
+            TimeDebug("Exception traceback: %s", traceback.format_exc())
+        #
+        TimeDebug("single_execute finished with mynode=%s", mynode)
+
+    def multi_execute(self):
+        TimeDebug("Multiprocessing with %s total nodes.", Settings.totalnode)
+        m_process = Settings.totalnode
+        with multiprocessing.Pool(processes=m_process) as pool:
+            results = pool.map(self.single_execute, range(m_process))
+            TimeDebug("Mapping started, waiting for results...")
+            pool.close()
+            pool.join()
