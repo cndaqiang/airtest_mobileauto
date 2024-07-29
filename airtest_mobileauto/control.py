@@ -126,7 +126,7 @@ class Settings(object):
         # control
         cls.prefix = config.get('control', 'prefix', fallback=cls.prefix)
         #
-        mobiletime = config.getint('client', 'mynode', fallback=cls.mobiletime)
+        mobiletime = config.getint('control', 'mobiletime', fallback=cls.mobiletime)
         eastern_eight_offset = timedelta(hours=mobiletime)
         cls.eastern_eight_tz = timezone(eastern_eight_offset)
         #
