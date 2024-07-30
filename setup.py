@@ -2,14 +2,19 @@ from setuptools import setup, find_packages
 
 setup(
     name='airtest_mobileauto',
-    version='1.3.6.1',
+    version='1.3.6.2',
     author='cndaqiang',
     author_email='who@cndaqiang.ac.cn',
-    description='A robust, object-oriented, multi-process mobile app control framework based on AirTest, designed for stable and compatible debugging and automation of devices and apps. Ideal for tasks such as game automation in titles like Honor of Kings, with enhanced stability features including connection checks, automatic retries on failure, and automatic restarts for continuous operation.', 
+    description='A robust, object-oriented, multi-process mobile app control framework based on AirTest, designed for stable and compatible debugging and automation of devices and apps. Ideal for tasks such as game automation in titles like Honor of Kings, with enhanced stability features including connection checks, automatic retries on failure, and automatic restarts for continuous operation.',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     packages=find_packages(),
-    url='https://github.com/cndaqiang/airtest_mobileauto',
+    package_data={
+        # 假设 tpl_target_pos.png 位于 'airtest_mobileauto' 包的根目录下
+        'airtest_mobileauto': ['tpl_target_pos.png'],
+    },
+    include_package_data=True,  # 确保 package_data 里的文件被包含
+    url='https://github.com/cndaqiang/airtest_mobileauto', 
     install_requires=[
         'airtest',
         'numpy',

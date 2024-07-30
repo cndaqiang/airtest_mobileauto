@@ -51,13 +51,17 @@ class Settings(object):
     # ? 设置,虚拟机,android docker, iphone, etc,主要进行设备的连接和重启
     BlueStackdir = ""  # "C:\Program Files\BlueStacks_nxt"
     LDPlayerdir = ""  # "D:\GreenSoft\LDPlayer"
-    dockercontain = ""  # "androidcontain"
+    dockercontain = {}  # "androidcontain"
     #
     # 特色修改
     # python解释器是AirtestIDE还是终端的python
     AirtestIDE = "AirtestIDE" in sys.executable
     start_app_syskeys = False
     figdir = "assets"
+    current_file_path = os.path.abspath(__file__)
+    current_dir = os.path.dirname(current_file_path)
+    testpng = Template_o(os.path.join(current_dir,"tpl_target_pos.png"), record_pos=(-0.28, 0.153), resolution=(960, 540), target_pos=6)
+
     #
     # control, 并行控制
     prefix = ""
@@ -108,7 +112,6 @@ class Settings(object):
         with open(config_file, 'r', encoding='utf-8') as f:
             config.read_file(f)
         #
-        cls.figdir = config.get('client', 'figdir', fallback="assets")
         #
         cls.mynode = config.getint('client', 'mynode', fallback=cls.mynode)
         cls.totalnode = config.getint('client', 'totalnode', fallback=cls.totalnode)
@@ -122,9 +125,12 @@ class Settings(object):
         cls.LDPlayerdir = config.get('client', 'LDPlayerdir', fallback=cls.LDPlayerdir)
         cls.BlueStackdir = config.get('client', 'BlueStackdir', fallback=cls.BlueStackdir)
         cls.dockercontain = config.get('client', 'dockercontain', fallback=cls.dockercontain)
+        dockercontain_str = config.get('client', 'dockercontain', fallback=str(cls.dockercontain), raw=True)
+        cls.dockercontain = eval(dockercontain_str)
         #
         # control
         cls.prefix = config.get('control', 'prefix', fallback=cls.prefix)
+        cls.figdir = config.get('control', 'figdir', fallback=cls.figdir)
         #
         mobiletime = config.getint('control', 'mobiletime', fallback=cls.mobiletime)
         eastern_eight_offset = timedelta(hours=mobiletime)
@@ -135,7 +141,7 @@ class Settings(object):
         logging.basicConfig(level=level, format='%(message)s')
         logger = logging.getLogger("airtest_mobileauto")
         logger.setLevel(level)
-        outputnode = config.getint('control', 'outputnode', fallback=cls.outputnode)
+        cls.outputnode = config.getint('control', 'outputnode', fallback=cls.outputnode)
     #
     @classmethod
     def info(cls, prefix=""):
@@ -341,13 +347,9 @@ def getpid_win(IMAGENAME="HD-Player.exe", key="BlueStacks App Player 0"):
 
 
 def connect_status(times=10):
-    # png = Template_o(r"assets/tpl_target_pos.png", record_pos=(-0.28, 0.153), resolution=(960, 540), target_pos=6)
-    # 同一个py文件, 只要在调用之前定义过了就可以
-    png = Template(r"tpl_target_pos.png", record_pos=(-0.28, 0.153), resolution=(960, 540), target_pos=6)
-    #
     for i in np.arange(times):
         try:
-            exists_o(png)
+            exists_o(Settings.testpng)
             return True
         except:
             if i == times - 1:
@@ -505,7 +507,6 @@ def Template(*args, **kwargs):
     if "dirname" in kwargs:
         dirname = kwargs["dirname"]
         del kwargs["dirname"]
-    # 将args转换为列表以进行修改
     args_list = list(args)
     if args_list and "png" in args_list[0]:
         filename = os.path.join(dirname, args_list[0].lstrip('/'))
@@ -826,7 +827,7 @@ class DQWheel:
                 return True, 判断元素集合
         return False, 判断元素集合
 
-    def existsTHENtouch(self, png=Template(r"tpl_target_pos.png"), keystr="", savepos=False):
+    def existsTHENtouch(self, png=Settings.testpng, keystr="", savepos=False):
         savepos = savepos and len(keystr) > 0 and self.savepos
         #
         if self.connecttimes > self.connecttimesMAX:  # 大概率连接失败了,判断一下
@@ -861,7 +862,7 @@ class DQWheel:
 
     #
     # touch的总时长timelimit s, 或者总循环次数<10
-    def LoopTouch(self, png=Template(r"tpl_target_pos.png"), keystr="", limit=0, loop=10, savepos=False):
+    def LoopTouch(self, png=Settings.testpng, keystr="", limit=0, loop=10, savepos=False):
         timekey = "LOOPTOUCH"+keystr+str(random.randint(1, 500))
         if limit + loop < 0.5:
             limit = 0
@@ -1150,6 +1151,9 @@ class deviceOB:
         #
         # 客户端
         self.device = None
+        #
+        self.mynode = mynode
+        self.totalnode = totalnode
         self.LINK = LINK
         self.LINKport = self.LINK.split(":")[-1]  # port
         # (USB连接时"Android:///id",没有端口
@@ -1199,15 +1203,12 @@ class deviceOB:
                         self.win_WindowsName.append(f"雷电模拟器-{i}")
             else:
                 self.客户端 = "RemoteAndroid"
-        elif "linux" in self.控制端 and len(Settings.dockercontain) > 0:  # Linux + docker
+        elif "linux" in self.控制端 and self.mynode in Settings.dockercontain.keys(): # Linux + docker
             self.客户端 = "lin_docker"
         elif len(self.LINKport) > 0:  # 通过网络访问的安卓设备
             self.客户端 = "RemoteAndroid"
         else:
             self.客户端 = "USBAndroid"
-        #
-        self.mynode = mynode
-        self.totalnode = totalnode
         #
         self.实体终端 = False
         self.实体终端 = "mac" in self.控制端 or "ios" in self.设备类型
@@ -1284,8 +1285,8 @@ class deviceOB:
             command.append([self.adb_path, "connect", self.LINKURL])
             command.append([self.adb_path, "-s", self.LINKURL, "reboot"])
         elif self.客户端 == "lin_docker":
-            虚拟机ID = f"{Settings.dockercontain}{self.mynode}"
-            command.append(["docker", "restart", 虚拟机ID])
+            containID = f"{Settings.dockercontain[self.mynode]}"
+            command.append(["docker", "restart", containID])
         elif self.客户端 == "RemoteAndroid":
             # 热重启系统
             command.append([self.adb_path, "connect", self.LINKURL])
@@ -1346,8 +1347,8 @@ class deviceOB:
             command.append([self.adb_path, "connect", self.LINKURL])
             command.append([self.adb_path, "-s", self.LINKURL, "reboot"])
         elif self.客户端 == "lin_docker":
-            虚拟机ID = f"{Settings.dockercontain}{self.mynode}"
-            command.append(["docker", "stop", 虚拟机ID])
+            containID = f"{Settings.dockercontain[self.mynode]}"
+            command.append(["docker", "stop", containID])
         elif self.客户端 == "RemoteAndroid":
             # 热重启系统
             command.append([self.adb_path, "-s", self.LINKURL, "shell", "stop"])
