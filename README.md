@@ -34,7 +34,7 @@ Manages the opening, stopping, and restarting of apps.
 
 ## Development Example
 
-* An automation script for [Honor of Kings](WZRY) is available as a development example.
+* An automation script for [Honor of Kings](https://github.com/cndaqiang/WZRY) is available as a development example.
 
 ## Acknowledgements
 
