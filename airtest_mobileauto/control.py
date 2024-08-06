@@ -48,62 +48,51 @@ logger.setLevel(logging.WARNING)
 
 
 class Settings(object):
-    # ? 设置,虚拟机,android docker, iphone, etc,主要进行设备的连接和重启
-    BlueStackdir = ""  # "C:\Program Files\BlueStacks_nxt"
-    LDPlayerdir = ""  # "D:\GreenSoft\LDPlayer"
-    dockercontain = {}  # "androidcontain"
     #
     # 特色修改
     # python解释器是AirtestIDE还是终端的python
     AirtestIDE = "AirtestIDE" in sys.executable
     start_app_syskeys = False
-    figdir = "assets"
     current_file_path = os.path.abspath(__file__)
     current_dir = os.path.dirname(current_file_path)
-    testpng = Template_o(os.path.join(current_dir,"tpl_target_pos.png"), record_pos=(-0.28, 0.153), resolution=(960, 540), target_pos=6)
-
-    #
-    # control, 并行控制
-    prefix = ""
-    logger_dict = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]
-    logger_level = 1  # 设置为0输出详细模式
-    logging.basicConfig(level=logging.INFO, format='%(message)s')
-    logger = logging.getLogger("airtest_mobileauto")
-    logger.setLevel(logging.DEBUG)
-
-    # 时间参数
-    # 防止服务器时区不同, 影响对游戏的执行时间判断
-    # 设置为8则为东八区
-    mobiletime = 8
-    eastern_eight_offset = timedelta(hours=mobiletime)
-    eastern_eight_tz = timezone(eastern_eight_offset)
-    #
-    mynode = 0
-    totalnode = 1
-    multiprocessing = False
-    outputnode = -1
+    testpng = Template_o(os.path.join(current_dir, "tpl_target_pos.png"), record_pos=(-0.28, 0.153), resolution=(960, 540), target_pos=6)
     #
     # 控制端
     platform = sys.platform.lower()
     # 避免和windows名字接近
     platform = "macos" if "darwin" in platform else platform
     #
-    LINK_dict = {}
-    # 本地docker容器
-    LINK_dict[0] = "Android:///127.0.0.1:5555"
-    LINK_dict[1] = "Android:///127.0.0.1:5565"
-    LINK_dict[2] = "Android:///127.0.0.1:5575"
-    LINK_dict[3] = "Android:///127.0.0.1:5585"
-    LINK_dict[4] = "Android:///127.0.0.1:5595"
-    # 一些特殊的测试机器
-    LINK_dict[5] = "Android:///192.168.192.10:5555"  # 服务器上的docker容器
-    LINK_dict[6] = "Android:///192.168.192.10:5565"  # 服务器上的docker容器
-    LINK_dict[7] = "ios:///http://127.0.0.1:8200"  # Iphone SE映射到本地
-    LINK_dict[8] = "ios:///http://169.254.83.56:8100"  # Iphone 11支持无线连接
-    LINK_dict[9] = "Android:///emulator-5554"  # 本地的安卓模拟器
-    LINK_dict[10] = "Android:///4e86ac13"  # usb连接的安卓手机
-
+    # control, 运行控制
+    prefix = ""
+    figdir = "assets"
+    # 时间参数
+    # 防止服务器时区不同, 影响对游戏的执行时间判断
+    # 设置为8则为东八区
+    mobiletime = 8
+    eastern_eight_offset = timedelta(hours=mobiletime)
+    eastern_eight_tz = timezone(eastern_eight_offset)
+    # 日志参数
+    logger_dict = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]
+    logger_level = 1  # 设置为0输出详细模式
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
+    logger = logging.getLogger("airtest_mobileauto")
+    logger.setLevel(logging.DEBUG)
+    outputnode = -1
     #
+
+    # client, 客户端情况
+    mynode = 0
+    totalnode = 1
+    multiprocessing = False
+    # 客户端
+    # 虚拟机,android docker, iphone, etc,主要进行设备的连接和重启
+    dockercontain = {}  # "androidcontain"
+    BlueStackdir = ""  # "C:\Program Files\BlueStacks_nxt"
+    LDPlayerdir = ""  # "D:\GreenSoft\LDPlayer"
+    # ADB地址
+    LINK_dict = {0: "Android:///127.0.0.1:5555"}
+    #
+
     @classmethod
     def Config(cls, config_file="config.in"):
         if not os.path.exists(config_file):
@@ -111,22 +100,6 @@ class Settings(object):
         config = configparser.ConfigParser()
         with open(config_file, 'r', encoding='utf-8') as f:
             config.read_file(f)
-        #
-        #
-        cls.mynode = config.getint('client', 'mynode', fallback=cls.mynode)
-        cls.totalnode = config.getint('client', 'totalnode', fallback=cls.totalnode)
-        cls.multiprocessing = config.getboolean('client', 'multiprocessing', fallback=cls.multiprocessing) and cls.totalnode > 1
-
-        # 读取LINK_dict，假设配置文件中存储的是字符串形式的字典
-        link_dict_str = config.get('client', 'LINK_dict', fallback=str(cls.LINK_dict), raw=True)
-        cls.LINK_dict = eval(link_dict_str)
-
-        # 更新路径属性
-        cls.LDPlayerdir = config.get('client', 'LDPlayerdir', fallback=cls.LDPlayerdir)
-        cls.BlueStackdir = config.get('client', 'BlueStackdir', fallback=cls.BlueStackdir)
-        cls.dockercontain = config.get('client', 'dockercontain', fallback=cls.dockercontain)
-        dockercontain_str = config.get('client', 'dockercontain', fallback=str(cls.dockercontain), raw=True)
-        cls.dockercontain = eval(dockercontain_str)
         #
         # control
         cls.prefix = config.get('control', 'prefix', fallback=cls.prefix)
@@ -142,7 +115,56 @@ class Settings(object):
         logger = logging.getLogger("airtest_mobileauto")
         logger.setLevel(level)
         cls.outputnode = config.getint('control', 'outputnode', fallback=cls.outputnode)
+        #
+        # client
+        cls.mynode = config.getint('client', 'mynode', fallback=cls.mynode)
+        cls.totalnode = config.getint('client', 'totalnode', fallback=cls.totalnode)
+        cls.multiprocessing = config.getboolean('client', 'multiprocessing', fallback=cls.multiprocessing) and cls.totalnode > 1
+        #
+        dockercontain_str = config.get('client', 'dockercontain', fallback=str(cls.dockercontain), raw=True)
+        cls.dockercontain = eval(dockercontain_str)
+        #
+        cls.BlueStackdir = config.get('client', 'BlueStackdir', fallback=cls.BlueStackdir)
+        cls.LDPlayerdir = config.get('client', 'LDPlayerdir', fallback=cls.LDPlayerdir)
+        emulator = ""
+        if len(cls.BlueStackdir) > 0:
+            cls.win_Instance = {0: "Nougat32"}
+            cls.win_InstanceName = {0: "BlueStacks App Player"}
+            for i in range(1, 5):
+                cls.win_Instance[i] = f"{cls.win_Instance[0]}_{i}"
+                cls.win_InstanceName[i] = f"{cls.win_InstanceName[0]} {i}"
+            emulator = 'BlueStack'
+        elif len(cls.LDPlayerdir) > 0:
+            cls.win_Instance = {0: "index=0"}
+            cls.win_InstanceName = {0: "雷电模拟器"}
+            for i in range(1, 5):
+                cls.win_Instance[i] = f"index={i}"
+                cls.win_InstanceName[i] = f"{cls.win_InstanceName[0]}-{i}"
+            emulator = 'LDPlayer'
+        if len(emulator) > 0:
+            Instance_str = config.get('client', emulator+'_Instance', fallback=str(cls.win_Instance), raw=True)
+            cls.win_Instance = eval(Instance_str)
+            Windows_str = config.get('client', emulator+'_Windows', fallback=str(cls.win_InstanceName), raw=True)
+            cls.win_InstanceName = eval(Windows_str)
+        #
+        # 读取LINK_dict，假设配置文件中存储的是字符串形式的字典
+        # 本地docker容器
+        cls.LINK_dict[0] = "Android:///127.0.0.1:5555"
+        cls.LINK_dict[1] = "Android:///127.0.0.1:5565"
+        cls.LINK_dict[2] = "Android:///127.0.0.1:5575"
+        cls.LINK_dict[3] = "Android:///127.0.0.1:5585"
+        cls.LINK_dict[4] = "Android:///127.0.0.1:5595"
+        cls.LINK_dict[5] = "Android:///192.168.192.10:5555"  # 服务器上的docker容器
+        cls.LINK_dict[6] = "Android:///192.168.192.10:5565"  # 服务器上的docker容器
+        cls.LINK_dict[7] = "ios:///http://127.0.0.1:8200"  # Iphone SE映射到本地
+        cls.LINK_dict[8] = "ios:///http://169.254.83.56:8100"  # Iphone 11支持无线连接
+        cls.LINK_dict[9] = "Android:///emulator-5554"  # 本地的安卓模拟器
+        cls.LINK_dict[10] = "Android:///4e86ac13"  # usb连接的安卓手机
+        link_dict_str = config.get('client', 'LINK_dict', fallback=str(cls.LINK_dict), raw=True)
+        cls.LINK_dict = eval(link_dict_str)
+
     #
+
     @classmethod
     def info(cls, prefix=""):
         TimeDebug(prefix+":mynode="+str(cls.mynode))
@@ -311,9 +333,21 @@ def getpid_win(IMAGENAME="HD-Player.exe", key="BlueStacks App Player 0"):
         command = ["tasklist", "-FI", f"IMAGENAME eq {IMAGENAME}", "/V"]
         process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
         output, _ = process.communicate()
-        # 使用 'utf-8' 编码解析输出
-        cont = output.decode('utf-8', errors='ignore').splitlines()
-        # cont = os.popen(f'tasklist -FI "IMAGENAME eq {IMAGENAME}" /V').readlines()
+        # 中文的windows系统默认返回gbk的编码
+        # 尝试使用不同编码解码输出
+        encodings = ['gbk', 'utf-8']  # 可以添加其他编码
+        decoded_output = None
+        for encoding in encodings:
+            try:
+                decoded_output = output.decode(encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+        if not decoded_output:
+            TimeECHO(f"getpid_win({IMAGENAME}) error"+":无法解析输出")
+            return 0
+        cont = decoded_output.splitlines()
+        cont = output.decode('gbk', errors='ignore').splitlines()
     except:
         TimeECHO(f"getpid_win({IMAGENAME}) error"+"-"*10)
         traceback.print_exc()
@@ -999,7 +1033,7 @@ class DQWheel:
                         TimeECHO(f"同步文件更新 lockfile={lockfile}")
                         sleep(10)
                         主辅通信成功 = self.removefile(lockfile)
-                    # 
+                    #
                     # 本节点通信成功，开始等待其他节点
                     if 主辅通信成功:
                         hour, minu, sec = self.time_getHMS()
@@ -1171,39 +1205,14 @@ class deviceOB:
         # 不同客户端对重启的适配能力不同
         if "ios" in self.设备类型:
             self.客户端 = "ios"
-        elif "win" in self.控制端 and "127.0.0.1" in self.LINK:
-            # 可以通过cmd控制模拟器: f"start /MIN C:\Progra~1\BlueStacks_nxt\HD-Player.exe --instance {instance}" (windows通用，不运行期间可彻底关闭模拟器，省电)
-            # 也可以adb reboot控制模拟器(安卓通用，但是BlueStack模拟器不支持)
-            # 模拟器启动后的窗口的名字
-            # 如果配置不好就用默认的"RemoteAndroid"
-            self.win_WindowsName = []
-            # 模拟器内部的名字(快捷方式中可以查看到)
-            self.win_InstanceName = []
-            if os.path.exists(os.path.join(Settings.BlueStackdir, "HD-MultiInstanceManager.exe")):
+        elif "win" in self.控制端:
+            if os.path.exists(Settings.BlueStackdir) and self.mynode in Settings.win_Instance.keys():
                 self.客户端 = "win_BlueStacks"
-                Instance = ["", "1", "2", "3", "4", "5"]
-                for i in Instance:
-                    if len(i) == 0:
-                        self.win_WindowsName.append(f"BlueStacks App Player")
-                        # 引擎, Nougat64,Nougat32,Pi64
-                        self.win_InstanceName.append(f"Nougat32")
-                    else:
-                        self.win_WindowsName.append(f"BlueStacks App Player {i}")
-                        self.win_InstanceName.append(f"Nougat32_{i}")
-                #
-            elif os.path.exists(os.path.join(Settings.LDPlayerdir, "dnmultiplayer.exe")):
+            elif os.path.exists(Settings.LDPlayerdir) and self.mynode in Settings.win_Instance.keys():
                 self.客户端 = "win_LD"
-                # LD多开模拟器的ID, 通过添加桌面快捷方式可以获取
-                Instance = ["0", "1", "2", "3", "4", "5"]
-                for i in Instance:
-                    self.win_InstanceName.append(f"index={i}")
-                    if i == "0":
-                        self.win_WindowsName.append(f"雷电模拟器")
-                    else:
-                        self.win_WindowsName.append(f"雷电模拟器-{i}")
             else:
                 self.客户端 = "RemoteAndroid"
-        elif "linux" in self.控制端 and self.mynode in Settings.dockercontain.keys(): # Linux + docker
+        elif "linux" in self.控制端 and self.mynode in Settings.dockercontain.keys():  # Linux + docker
             self.客户端 = "lin_docker"
         elif len(self.LINKport) > 0:  # 通过网络访问的安卓设备
             self.客户端 = "RemoteAndroid"
@@ -1275,10 +1284,10 @@ class deviceOB:
                 return False
         # android
         elif self.客户端 == "win_BlueStacks":
-            instance = self.win_InstanceName[self.mynode]
+            instance = Settings.win_Instance[self.mynode]
             command.append([os.path.join(Settings.BlueStackdir, "HD-Player.exe"), "--instance", instance])
         elif self.客户端 == "win_LD":
-            instance = self.win_InstanceName[self.mynode]
+            instance = Settings.win_Instance[self.mynode]
             command.append([os.path.join(Settings.LDPlayerdir, "dnplayer.exe"), instance])
         elif self.客户端 == "FULL_ADB":
             # 通过reboot的方式可以实现重启和解决资源的效果
@@ -1324,21 +1333,20 @@ class deviceOB:
         # android
         elif self.客户端 == "win_BlueStacks":
             # 尝试获取PID
-            PID = getpid_win(IMAGENAME="HD-Player.exe", key=self.win_WindowsName[self.mynode])
+            PID = getpid_win(IMAGENAME="HD-Player.exe", key=Settings.win_InstanceName[self.mynode])
             # BlueStacks App Player 3
             if PID > 0:
                 command.append(["taskkill", "/F", "/FI", f"PID eq {str(PID)}"])
-            else:  # 关闭所有虚拟机，暂时用不到
-                command.append(["taskkill", "/F", "/IM", "HD-Player.exe"])
+            else:
+                # 关闭所有虚拟机，暂时不采用
+                # command.append(["taskkill", "/F", "/IM", "HD-Player.exe"])
+                command = []
         elif self.客户端 == "win_LD":
             # 尝试获取PID
-            PID = getpid_win(IMAGENAME="dnplayer.exe", key=self.win_WindowsName[self.mynode])
+            PID = getpid_win(IMAGENAME="dnplayer.exe", key=Settings.win_InstanceName[self.mynode])
             if PID > 0:
                 command.append(["taskkill", "/F", "/FI", f"PID eq {str(PID)}"])
             else:
-                # 关闭所有虚拟机，暂时用不到
-                # command.append('taskkill /f /im dnplayer.exe')
-                # 通过reboot的方式可以实现重启和解决资源的效果
                 # LDPlayer支持adb reboot,👍
                 command.append([self.adb_path, "connect", self.LINKURL])
                 command.append([self.adb_path, "-s", self.LINKURL, "reboot"])
@@ -1349,21 +1357,19 @@ class deviceOB:
         elif self.客户端 == "lin_docker":
             containID = f"{Settings.dockercontain[self.mynode]}"
             command.append(["docker", "stop", containID])
-        elif self.客户端 == "RemoteAndroid":
-            # 热重启系统
-            command.append([self.adb_path, "-s", self.LINKURL, "shell", "stop"])
-            command.append([self.adb_path, "-s", self.LINKURL, "shell", "start"])
-            command.append([self.adb_path, "disconnect", self.LINKURL])
         elif self.客户端 == "USBAndroid":
             result = getstatusoutput("adb devices")
             if self.LINKURL in result[1]:
                 command.append([self.adb_path, "-s", self.LINKURL, "reboot"])
             else:
                 TimeECHO(f"没有找到USB设备{self.LINKURL}\n"+result[1])
-                return False
-        else:
-            TimeECHO(f"未知设备类型")
-            return False
+                command = []
+        # 保底的热重启系统
+        if self.客户端 == "RemoteAndroid" or len(command) == 0:
+            command.append([self.adb_path, "-s", self.LINKURL, "shell", "stop"])
+            command.append([self.adb_path, "-s", self.LINKURL, "shell", "start"])
+            command.append([self.adb_path, "disconnect", self.LINKURL])
+        #
         # 开始运行
         exit_code = run_command(command=command, sleeptime=60)
         if exit_code == 0:
