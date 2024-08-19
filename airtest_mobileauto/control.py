@@ -127,19 +127,19 @@ class Settings(object):
         cls.BlueStackdir = config.get('client', 'BlueStackdir', fallback=cls.BlueStackdir)
         cls.LDPlayerdir = config.get('client', 'LDPlayerdir', fallback=cls.LDPlayerdir)
         emulator = ""
+        cls.win_Instance = {}
+        cls.win_InstanceName = {}
         if len(cls.BlueStackdir) > 0:
-            cls.win_Instance = {0: "Nougat32"}
-            cls.win_InstanceName = {0: "BlueStacks App Player"}
+            cls.win_Instance[0] = "Nougat32"
+            cls.win_InstanceName[0] = "BlueStacks App Player"
             for i in range(1, 5):
                 cls.win_Instance[i] = f"{cls.win_Instance[0]}_{i}"
                 cls.win_InstanceName[i] = f"{cls.win_InstanceName[0]} {i}"
             emulator = 'BlueStack'
         elif len(cls.LDPlayerdir) > 0:
-            cls.win_Instance = {0: "index=0"}
-            cls.win_InstanceName = {0: "雷电模拟器"}
-            for i in range(1, 5):
-                cls.win_Instance[i] = f"index={i}"
-                cls.win_InstanceName[i] = f"{cls.win_InstanceName[0]}-{i}"
+            # LDPlayer提供了开启关闭的console, 不用像BlueStackdir检索PID关闭
+            for i in range(5):
+                cls.win_Instance[i] = f"{i}"
             emulator = 'LDPlayer'
         if len(emulator) > 0:
             Instance_str = config.get('client', emulator+'_Instance', fallback=str(cls.win_Instance), raw=True)
@@ -1110,7 +1110,10 @@ class DQWheel:
             hour = hour + minu/60.0+sec/60.0/60.0
         startclock = (startclock+24) % 24
         endclock = (endclock+24) % 24
-
+        #
+        # 全天
+        if startclock == endclock:
+            return 0
         # 不跨越午夜的情况[6,23]
         if startclock <= endclock:
             left = 0 if startclock <= hour <= endclock else self.left_hour(startclock, hour)
@@ -1288,7 +1291,7 @@ class deviceOB:
             command.append([os.path.join(Settings.BlueStackdir, "HD-Player.exe"), "--instance", instance])
         elif self.客户端 == "win_LD":
             instance = Settings.win_Instance[self.mynode]
-            command.append([os.path.join(Settings.LDPlayerdir, "dnplayer.exe"), instance])
+            command.append([os.path.join(Settings.LDPlayerdir, "ldconsole.exe"), "launch", "--index", instance])
         elif self.客户端 == "FULL_ADB":
             # 通过reboot的方式可以实现重启和解决资源的效果
             command.append([self.adb_path, "connect", self.LINKURL])
@@ -1342,14 +1345,8 @@ class deviceOB:
                 # command.append(["taskkill", "/F", "/IM", "HD-Player.exe"])
                 command = []
         elif self.客户端 == "win_LD":
-            # 尝试获取PID
-            PID = getpid_win(IMAGENAME="dnplayer.exe", key=Settings.win_InstanceName[self.mynode])
-            if PID > 0:
-                command.append(["taskkill", "/F", "/FI", f"PID eq {str(PID)}"])
-            else:
-                # LDPlayer支持adb reboot,👍
-                command.append([self.adb_path, "connect", self.LINKURL])
-                command.append([self.adb_path, "-s", self.LINKURL, "reboot"])
+            instance = Settings.win_Instance[self.mynode]
+            command.append([os.path.join(Settings.LDPlayerdir, "ldconsole.exe"), "quit", "--index", instance])
         elif self.客户端 == "FULL_ADB":
             # 通过reboot的方式可以实现重启和解决资源的效果
             command.append([self.adb_path, "connect", self.LINKURL])
