@@ -1316,12 +1316,22 @@ class deviceOB:
             return False
         # 开始运行
         exit_code = run_command(command=command)
+        if self.客户端 == "win_BlueStacks": #让LDPlayer在后台运行
+            TimeECHO(f"BlueStacks: ctrl+shift+X")
+            import win32api
+            import win32con
+            win32api.keybd_event(17,0,0,0) # ctrl
+            win32api.keybd_event(16,0,0,0) # shift
+            win32api.keybd_event(88,0,0,0) # x
+            win32api.keybd_event(88,0,win32con.KEYEVENTF_KEYUP,0)
+            win32api.keybd_event(16,0,win32con.KEYEVENTF_KEYUP,0)
+            win32api.keybd_event(17,0,win32con.KEYEVENTF_KEYUP,0)
         if self.客户端 == "win_LD": #让LDPlayer在后台运行
             TimeECHO(f"LDPlayer: ctrl+Q")
             import win32api
             import win32con
-            win32api.keybd_event(17,0,0,0)
-            win32api.keybd_event(81,0,0,0)
+            win32api.keybd_event(17,0,0,0) # ctrl
+            win32api.keybd_event(81,0,0,0) # q
             win32api.keybd_event(81,0,win32con.KEYEVENTF_KEYUP,0)
             win32api.keybd_event(17,0,win32con.KEYEVENTF_KEYUP,0)
         if exit_code == 0:
