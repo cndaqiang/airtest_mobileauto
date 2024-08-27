@@ -78,6 +78,8 @@ class Settings(object):
     logger = logging.getLogger("airtest_mobileauto")
     logger.setLevel(logging.DEBUG)
     outputnode = -1
+    logfile = ""
+    logfile_dict = {}
     #
 
     # client, 客户端情况
@@ -89,6 +91,7 @@ class Settings(object):
     dockercontain = {}  # "androidcontain"
     BlueStackdir = ""  # "C:\Program Files\BlueStacks_nxt"
     LDPlayerdir = ""  # "D:\GreenSoft\LDPlayer"
+    MuMudir = ""  # "D:\Program Files\Netease\MuMu Player 12\shell"
     # ADB地址
     LINK_dict = {0: "Android:///127.0.0.1:5555"}
     #
@@ -115,6 +118,18 @@ class Settings(object):
         logger = logging.getLogger("airtest_mobileauto")
         logger.setLevel(level)
         cls.outputnode = config.getint('control', 'outputnode', fallback=cls.outputnode)
+        # 输入日志到文件
+        for i in range(10):
+            cls.logfile_dict[i] = ""
+        logfile_dict_str = config.get('control', 'logfile', fallback=str(cls.logfile_dict), raw=True)
+        cls.logfile_dict = eval(logfile_dict_str)
+        # 尝试删除文件
+        for i in range(10):
+            try:
+                if os.path.exists(cls.logfile_dict[i]):
+                    os.remove(cls.logfile_dict[i])
+            except:
+                pass
         #
         # client
         cls.mynode = config.getint('client', 'mynode', fallback=cls.mynode)
@@ -126,26 +141,42 @@ class Settings(object):
         #
         cls.BlueStackdir = config.get('client', 'BlueStackdir', fallback=cls.BlueStackdir)
         cls.LDPlayerdir = config.get('client', 'LDPlayerdir', fallback=cls.LDPlayerdir)
+        cls.MuMudir = config.get('client', 'MuMudir', fallback=cls.MuMudir)
         emulator = ""
-        cls.win_Instance = {}
-        cls.win_InstanceName = {}
+        cls.win_Instance = {}  # 模拟器启动的编号
+        cls.win_InstanceName = {}  # 模拟器运行后的窗口名
+        cls.BossKey = {}  # 老板键,快速隐藏APP
+        # BlueStacks没有提供终端开启关闭模拟器的方法，需要根据窗口名检索PID关闭模拟器
         if len(cls.BlueStackdir) > 0:
             cls.win_Instance[0] = "Nougat32"
             cls.win_InstanceName[0] = "BlueStacks App Player"
             for i in range(1, 5):
                 cls.win_Instance[i] = f"{cls.win_Instance[0]}_{i}"
                 cls.win_InstanceName[i] = f"{cls.win_InstanceName[0]} {i}"
+                cls.BossKey[i] = [17, 16, 88]  # ctrl+shift+X
             emulator = 'BlueStack'
         elif len(cls.LDPlayerdir) > 0:
-            # LDPlayer提供了开启关闭的console, 不用像BlueStackdir检索PID关闭
             for i in range(5):
                 cls.win_Instance[i] = f"{i}"
+                cls.BossKey[i] = [17, 81]  # ctrl+q
             emulator = 'LDPlayer'
+        elif len(cls.MuMudir) > 0:
+            for i in range(5):
+                cls.win_Instance[i] = f"{i}"
+                # MuMu多开时会键位冲突, 为了避免冲突，我们修改为 ctrl + alt + mynode
+                cls.BossKey[i] = [17, 18, 48+i]
+            # 主进程使用默认的 alt(18) + q(81)
+            cls.BossKey[0] = [18, 81]
+            emulator = 'MuMu'
         if len(emulator) > 0:
             Instance_str = config.get('client', emulator+'_Instance', fallback=str(cls.win_Instance), raw=True)
             cls.win_Instance = eval(Instance_str)
             Windows_str = config.get('client', emulator+'_Windows', fallback=str(cls.win_InstanceName), raw=True)
             cls.win_InstanceName = eval(Windows_str)
+            # 是否替换默认的BossKey
+            BossKey_str = config.get('client', 'BossKey', fallback=str({}), raw=True)
+            BossKey = eval(BossKey_str)
+            cls.BossKey.update(BossKey)
         #
         # 读取LINK_dict，假设配置文件中存储的是字符串形式的字典
         # 本地docker容器
@@ -162,8 +193,12 @@ class Settings(object):
         cls.LINK_dict[10] = "Android:///4e86ac13"  # usb连接的安卓手机
         link_dict_str = config.get('client', 'LINK_dict', fallback=str(cls.LINK_dict), raw=True)
         cls.LINK_dict = eval(link_dict_str)
-
     #
+
+    @classmethod
+    def Config_mynode(cls, mynode):
+        cls.mynode = mynode
+        cls.logfile = cls.logfile_dict[cls.mynode]
 
     @classmethod
     def info(cls, prefix=""):
@@ -186,6 +221,10 @@ def TimeECHO(info, *args, **kwargs):
     if Settings.outputnode >= 0 and Settings.outputnode != Settings.mynode:
         return
     modified_args = loggerhead()+info
+    if len(Settings.logfile) > 0:
+        f = open(Settings.logfile, 'a', encoding='utf-8')
+        f.write(modified_args+"\n")
+        f.close()
     Settings.logger.info(modified_args)
     return
 
@@ -193,7 +232,12 @@ def TimeECHO(info, *args, **kwargs):
 def TimeErr(info, *args, **kwargs):
     if Settings.outputnode >= 0 and Settings.outputnode != Settings.mynode:
         return
-    Settings.logger.warning(loggerhead()+info, *args, **kwargs)
+    modified_args = loggerhead()+info
+    if len(Settings.logfile) > 0:
+        f = open(Settings.logfile, 'a', encoding='utf-8')
+        f.write(modified_args+"\n")
+        f.close()
+    Settings.logger.warning(modified_args, *args, **kwargs)
 
 
 def TimeDebug(info, *args, **kwargs):
@@ -557,9 +601,8 @@ def Template(*args, **kwargs):
 
 
 class DQWheel:
-    def __init__(self, var_dict_file='var_dict_file.txt', mynode=-10, totalnode=-10, 容器优化=False):
+    def __init__(self, var_dict_file='var_dict_file.txt', mynode=-10, totalnode=-10):
         self.timedict = {}
-        self.容器优化 = 容器优化
         self.辅助同步文件 = "NeedRebarrier.txt"
         self.mynode = mynode
         self.totalnode = totalnode
@@ -573,13 +616,13 @@ class DQWheel:
         # 子程序运行次数
         self.calltimes_dict = {}
         #
-        self.stopnow = False
         self.stopfile = ".tmp.barrier.EXIT.txt"
         self.stopinfo = ""
         self.connecttimes = 0
         self.connecttimesMAX = 20
         self.独立同步文件 = f"{self.mynode}.{self.totalnode}.NeedRebarrier.txt"
         self.removefile(self.独立同步文件)
+        self.removefile(self.stopfile)
 
     def list_files(self, path):
         files = []
@@ -589,15 +632,9 @@ class DQWheel:
         return files
     #
 
-    def init_clean(self):
-        # 不要删除这个文件,开局采用同步的方式进行统一删除,不然时间差会导致很多问题
-        # self.removefile(self.辅助同步文件)
-        # os.listdir(".")不显示隐藏文件
-        for name in self.list_files("."):
-            text = ".tmp.barrier."
-            if text == name[:len(text)]:
-                TimeECHO(f"清理旧文件:{name}")
-                self.removefile(name)
+    def init_clean(self, text=".tmp.barrier."):
+        # 多节点时，要同步成功后，采用主节点进行删除,不然时间差会导致很多问题
+        self.removefiles(head=".tmp.barrier.", foot=".txt")
     #
 
     def timelimit(self, timekey="", limit=0, init=True):
@@ -674,16 +711,16 @@ class DQWheel:
 
     def touchstopfile(self, content="stop"):
         self.touchfile(self.stopfile, content=content)
-        self.stopnow = True
         self.stopinfo = content
 
+    def stopnow(self):
+        return os.path.exists(self.stopfile)
+
     def readstopfile(self):
-        if os.path.exists(self.stopfile):
-            self.stopinfo = self.readfile(self.stopfile)[0]
-            self.stopnow = True
+        if self.stopnow:
+            return self.readfile(self.stopfile)[0]
         else:
-            self.stopnow = False
-        return self.stopnow
+            return ""
 
     def readfile(self, filename):
         if not os.path.exists(filename):
@@ -693,6 +730,7 @@ class DQWheel:
             f = open(filename, 'r', encoding='utf-8')
             content = f.readlines()
             f.close()
+            content = content if len(content) > 0 else [""]
             TimeECHO("Read["+filename+"]成功")
             return content
         except:
@@ -921,13 +959,16 @@ class DQWheel:
             return False
     # 这仅针对辅助模式,因此同步文件取self.辅助同步文件
 
-    def 必须同步等待成功(self, mynode, totalnode, 同步文件="", sleeptime=60*5):
+    def 必须同步等待成功(self, mynode, totalnode, 同步文件="", 不再同步="", sleeptime=60*5):
         同步文件 = 同步文件 if len(同步文件) > 1 else self.辅助同步文件
         if totalnode < 2:
             self.removefile(同步文件)
             return True
         if self.存在同步文件(同步文件):  # 单进程各种原因出错时,多进程无法同步时
-            if self.readstopfile():
+            if self.stopnow():
+                return
+            if os.path.exists(不再同步):
+                TimeErr(f"检测到文件:{不再同步},结束{fun_name(1)}循环")
                 return
             TimeECHO(f"---{mynode}---"*5)
             TimeECHO(f"存在同步文件({同步文件}),第一次尝试同步程序")
@@ -936,7 +977,10 @@ class DQWheel:
             self.同步等待(mynode, totalnode, 同步文件, sleeptime)
             # 如果还存在说明同步等待失败,那么改成hh:waitminu*N时刻进行同步
             while self.存在同步文件(同步文件):
-                if self.readstopfile():
+                if self.stopnow():
+                    return
+                if os.path.exists(不再同步):
+                    TimeErr(f"检测到文件:{不再同步},结束{fun_name(1)}循环")
                     return
                 waitminu = int(min(59, 5*totalnode))
                 TimeErr(f"仍然存在同步文件,进行{waitminu}分钟一次的循环")
@@ -1079,20 +1123,23 @@ class DQWheel:
         sleep(sleeptime)
         return not os.path.exists(同步文件)
 
-    def time_getHM(self):
+    @staticmethod
+    def time_getHM():
         current_time = datetime.now(Settings.eastern_eight_tz)
         hour = current_time.hour
         minu = current_time.minute
         return hour, minu
 
-    def time_getHMS(self):
+    @staticmethod
+    def time_getHMS():
         current_time = datetime.now(Settings.eastern_eight_tz)
         hour = current_time.hour
         minu = current_time.minute
         sec = current_time.second
         return hour, minu, sec
 
-    def time_getYHMS(self):
+    @staticmethod
+    def time_getYHMS():
         current_time = datetime.now(Settings.eastern_eight_tz)
         year = current_time.hour
         hour = current_time.hour
@@ -1100,13 +1147,15 @@ class DQWheel:
         sec = current_time.second
         return year, hour, minu, sec
 
-    def time_getweek(self):
+    @staticmethod
+    def time_getweek():
         return datetime.now(Settings.eastern_eight_tz).weekday()
     # return 0 - 6
 
-    def hour_in_span(self, startclock=0, endclock=24, hour=None):
+    @staticmethod
+    def hour_in_span(startclock=0, endclock=24, hour=None):
         if not hour:
-            hour, minu, sec = self.time_getHMS()
+            hour, minu, sec = DQWheel.time_getHMS()
             hour = hour + minu/60.0+sec/60.0/60.0
         startclock = (startclock+24) % 24
         endclock = (endclock+24) % 24
@@ -1116,15 +1165,16 @@ class DQWheel:
             return 0
         # 不跨越午夜的情况[6,23]
         if startclock <= endclock:
-            left = 0 if startclock <= hour <= endclock else self.left_hour(startclock, hour)
+            left = 0 if startclock <= hour <= endclock else DQWheel.left_hour(startclock, hour)
         # 跨越午夜的情况[23,6], 即[6,23]不对战
         else:
-            left = self.left_hour(startclock, hour) if endclock < hour < startclock else 0
+            left = DQWheel.left_hour(startclock, hour) if endclock < hour < startclock else 0
         return left
 
-    def left_hour(self, endtime=24, hour=None):
+    @staticmethod
+    def left_hour(endtime=24, hour=None):
         if not hour:
-            hour, minu, sec = self.time_getHMS()
+            hour, minu, sec = DQWheel.time_getHMS()
             hour = hour + minu/60.0+sec/60.0/60.0
         left = (endtime+24-hour) % 24
         return left
@@ -1213,6 +1263,8 @@ class deviceOB:
                 self.客户端 = "win_BlueStacks"
             elif os.path.exists(Settings.LDPlayerdir) and self.mynode in Settings.win_Instance.keys():
                 self.客户端 = "win_LD"
+            elif os.path.exists(Settings.MuMudir) and self.mynode in Settings.win_Instance.keys():
+                self.客户端 = "win_MuMu"
             else:
                 self.客户端 = "RemoteAndroid"
         elif "linux" in self.控制端 and self.mynode in Settings.dockercontain.keys():  # Linux + docker
@@ -1224,7 +1276,6 @@ class deviceOB:
         #
         self.实体终端 = False
         self.实体终端 = "mac" in self.控制端 or "ios" in self.设备类型
-        self.容器优化 = "linux" in self.控制端 and "android" in self.设备类型
         #
         TimeECHO(f"控制端({self.控制端})")
         TimeECHO(f"客户端({self.客户端})")
@@ -1255,15 +1306,23 @@ class deviceOB:
             if "ios" in self.设备类型:
                 TimeECHO("重新插拔数据线")
         #
-        if times <= timesMax:
-            TimeECHO(f"{self.LINK}:链接失败,重启设备再次连接")
+        if times < timesMax:
+            TimeECHO(f"{self.LINK}:链接失败,启动设备再次连接")
             self.启动设备()
+            return self.连接设备(times+1, timesMax)
+        elif times == timesMax:
+            TimeECHO(f"{self.LINK}:链接失败,重启设备再次连接")
+            self.重启设备()
             return self.连接设备(times+1, timesMax)
         else:
             TimeErr(f"{self.LINK}:链接失败,无法继续")
+            TimeErr(f"建议重置ADB: {self.adb_path} kill-server ")
             return False
 
     def 启动设备(self):
+        if "android" in self.LINKtype:
+            # 避免其他adb程序占用导致卡住
+            run_command([[str(self.adb_path), "disconnect", self.LINKURL]])
         command = []
         TimeECHO(f"尝试启动设备中...")
         if self.客户端 == "ios":
@@ -1292,6 +1351,9 @@ class deviceOB:
         elif self.客户端 == "win_LD":
             instance = Settings.win_Instance[self.mynode]
             command.append([os.path.join(Settings.LDPlayerdir, "ldconsole.exe"), "launch", "--index", instance])
+        elif self.客户端 == "win_MuMu":
+            instance = Settings.win_Instance[self.mynode]
+            command.append([os.path.join(Settings.MuMudir, "MuMuManager.exe"), "control", "-v", instance, "launch"])
         elif self.客户端 == "FULL_ADB":
             # 通过reboot的方式可以实现重启和解决资源的效果
             command.append([self.adb_path, "connect", self.LINKURL])
@@ -1315,25 +1377,27 @@ class deviceOB:
             TimeECHO(f"未知设备类型")
             return False
         # 开始运行
+        # 控制不同的节点在不同的时间启动
+        hour, minu, sec = DQWheel.time_getHMS()
+        # 每2分钟启动一个，避免快捷键的冲突
+        while minu % (self.totalnode*2) != self.mynode*2 or sec > 30:
+            if self.totalnode == 1:
+                break
+            TimeECHO("等待启动时间中")
+            sleep(5)
+            hour, minu, sec = DQWheel.time_getHMS()
         exit_code = run_command(command=command)
-        if self.客户端 == "win_BlueStacks": #让LDPlayer在后台运行
-            TimeECHO(f"BlueStacks: ctrl+shift+X")
+        #
+        # 让客户端在后台运行
+        BossKey = Settings.BossKey[self.mynode]
+        if "win_" in self.客户端 and len(BossKey) > 0:
             import win32api
             import win32con
-            win32api.keybd_event(17,0,0,0) # ctrl
-            win32api.keybd_event(16,0,0,0) # shift
-            win32api.keybd_event(88,0,0,0) # x
-            win32api.keybd_event(88,0,win32con.KEYEVENTF_KEYUP,0)
-            win32api.keybd_event(16,0,win32con.KEYEVENTF_KEYUP,0)
-            win32api.keybd_event(17,0,win32con.KEYEVENTF_KEYUP,0)
-        if self.客户端 == "win_LD": #让LDPlayer在后台运行
-            TimeECHO(f"LDPlayer: ctrl+Q")
-            import win32api
-            import win32con
-            win32api.keybd_event(17,0,0,0) # ctrl
-            win32api.keybd_event(81,0,0,0) # q
-            win32api.keybd_event(81,0,win32con.KEYEVENTF_KEYUP,0)
-            win32api.keybd_event(17,0,win32con.KEYEVENTF_KEYUP,0)
+            for ikey in BossKey:
+                win32api.keybd_event(ikey, 0, 0, 0)
+            for ikey in BossKey[::-1]:
+                win32api.keybd_event(ikey, 0, win32con.KEYEVENTF_KEYUP, 0)
+        #
         if exit_code == 0:
             TimeECHO(f"启动成功")
             return True
@@ -1365,6 +1429,9 @@ class deviceOB:
         elif self.客户端 == "win_LD":
             instance = Settings.win_Instance[self.mynode]
             command.append([os.path.join(Settings.LDPlayerdir, "ldconsole.exe"), "quit", "--index", instance])
+        elif self.客户端 == "win_MuMu":
+            instance = Settings.win_Instance[self.mynode]
+            command.append([os.path.join(Settings.MuMudir, "MuMuManager.exe"), "control", "-v", instance, "shutdown"])
         elif self.客户端 == "FULL_ADB":
             # 通过reboot的方式可以实现重启和解决资源的效果
             command.append([self.adb_path, "connect", self.LINKURL])
@@ -1404,6 +1471,9 @@ class deviceOB:
             TimeECHO(f"...taskkill_sleep: {i}", end='\r')
             sleep(printtime)
         self.启动设备()
+
+    def 重启重连设备(self, sleeptime=0):
+        self.重启设备(sleeptime=sleeptime)
         self.连接设备()
 
 
@@ -1437,7 +1507,7 @@ class appOB:
         sleeptime = max(10, sleeptime)  # 这里的单位是s
         printtime = max(30, sleeptime/10)
         if sleeptime > 60*60 and self.device:  # >1h
-            self.device.重启设备(sleeptime)
+            self.device.重启重连设备(sleeptime)
         else:
             TimeECHO("sleep %d min" % (sleeptime/60))
             nstep = int(sleeptime/printtime)
@@ -1489,7 +1559,8 @@ class TaskManager:
         #
         if mynode != None:
             TimeDebug("input mynode=%s", mynode)
-            Settings.mynode = mynode
+            # 多进程时, mynode无法读入, 这里进行设置
+            Settings.Config_mynode(mynode)
         else:
             mynode = Settings.mynode
             TimeDebug("reD mynode=%s", mynode)

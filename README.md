@@ -17,7 +17,7 @@ Handles device management in an object-oriented approach, supporting various cli
 
 | Clients | Control Endpoints | Management Capabilities |
 |---------|-------------------|-------------------------|
-| [BlueStacks](https://www.bluestacks.com/download.html) / [LDPlayer](https://www.ldplayer.net/) | Windows | Start, stop, and restart emulators |
+| [BlueStacks](https://www.bluestacks.com/download.html) / [LDPlayer](https://www.ldplayer.net/)/ [MuMu](https://mumu.163.com/) | Windows | Start, stop, and restart emulators |
 | [Docker](https://hub.docker.com/r/redroid/redroid) | Linux | Start, stop, and restart containers |
 | iOS | Mac | Reconnect with tidevice, restart iOS |
 | USB-connected Android phones | ALL | Reboot Android system |
