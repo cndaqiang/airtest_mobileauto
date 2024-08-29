@@ -581,20 +581,21 @@ def stop_app(*args, **kwargs):
 
 def Template(*args, **kwargs):
     # 在这里修改args和kwargs，例如针对kwargs中的key进行添加内容
-    dirname = Settings.figdir
+    dirname = []
     if "dirname" in kwargs:
-        dirname = kwargs["dirname"]
+        dirname.append(kwargs["dirname"])
         del kwargs["dirname"]
+    dirname.append(Settings.figdir)
+    dirname.append("./")
     args_list = list(args)
     if args_list and "png" in args_list[0]:
-        filename = os.path.join(dirname, args_list[0].lstrip('/'))
-        if os.path.exists(filename):
-            args_list[0] = os.path.join(dirname, args_list[0].lstrip('/'))
+        for dir in dirname:
+            filename = os.path.join(dir, args_list[0].lstrip('/'))
+            if os.path.exists(filename):
+                args_list[0] = os.path.join(dir, args_list[0].lstrip('/'))
+                break
         else:
-            TimeErr(f"不存在{filename}")
-            filename = args_list[0]
-            if not os.path.exists(filename):
-                TimeErr(f"不存在{filename}")
+            TimeErr(f"不存在{args_list[0]}")
         args = args_list
     # 调用Template_o函数，传入修改后的参数
     return Template_o(*args, **kwargs)

@@ -32,9 +32,13 @@ Manages the opening, stopping, and restarting of apps.
 * A utility for multi-process support based on the file system, including synchronization, broadcasting, file management, and enhanced time management.
 * Utilizes files and dictionaries to store and retrieve image coordinates, reducing the time to locate element coordinates repeatedly. It also allows for selecting specific positions, such as the least proficient hero in Honor of Kings based on proficiency.
 
-## Development Example
+## Development Examples
 
-* An automation script for [Honor of Kings](https://github.com/cndaqiang/WZRY) is available as a development example.
+Below are some examples of development scripts that demonstrate the capabilities of the project.
+
+- An automation script for [Honor of Kings](https://github.com/cndaqiang/WZRY) .
+- Automate daily sign-ins and claim gift packages on Android with [autotask_android](https://github.com/cndaqiang/autotask_android).
+
 
 ## Acknowledgements
 
