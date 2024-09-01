@@ -193,6 +193,9 @@ class Settings(object):
         cls.LINK_dict[10] = "Android:///4e86ac13"  # usb连接的安卓手机
         link_dict_str = config.get('client', 'LINK_dict', fallback=str(cls.LINK_dict), raw=True)
         cls.LINK_dict = eval(link_dict_str)
+        #
+        # 初始化之后，根据参数修改配置
+        cls.logfile = cls.logfile_dict[cls.mynode]
     #
 
     @classmethod
@@ -698,6 +701,9 @@ class DQWheel:
         return True
 
     def touchfile(self, filename, content=""):
+        """
+        只要content有内容，就重新建立
+        """
         TimeECHO(f"touchfile[{filename}]")
         content = str(content)
         if len(content) > 0:
@@ -741,16 +747,24 @@ class DQWheel:
 
     #
     def touch同步文件(self, 同步文件="", content=""):
+        """
+        content有内容，文件已经存在了也不会重建
+        """
         if len(同步文件) > 1:
             同步文件 = 同步文件
         else:
             同步文件 = self.辅助同步文件 if self.totalnode_bak > 1 else self.独立同步文件
+        #
+        if 同步文件 == self.辅助同步文件:
+            self.touch同步文件(self.独立同步文件, content)
+        #
         if self.存在同步文件(同步文件):
             TimeECHO(f"不再创建[{同步文件}]")
             return True
         content = loggerhead()+funs_name() if len(content) == 0 else content
         TimeECHO(f"**** TOUCH **** 创建同步文件[{同步文件}]")
         self.touchfile(同步文件, content)
+        #
         return True
 
     def 存在同步文件(self, 同步文件=""):
@@ -886,10 +900,10 @@ class DQWheel:
             self.calltimes_dict[strinfo] = self.calltimes_dict[strinfo]+1
         else:
             self.calltimes_dict[strinfo] = 1
-        strinfo = f"第[{self.calltimes_dict[strinfo]}]次寻找{strinfo}"
+        content = f"第[{self.calltimes_dict[strinfo]}]次寻找{strinfo}"
         length = len(判断元素集合)
         for idx, i in enumerate(判断元素集合):
-            TimeECHO(f"{strinfo}({idx+1}/{length}):{i}")
+            TimeECHO(f"{content}({idx+1}/{length}):{i}")
             pos = exists(i)
             if pos:
                 TimeECHO(f"{strinfo}成功:{i}")
@@ -1010,6 +1024,8 @@ class DQWheel:
         # 一个节点、一个节点的check
         #
         同步文件 = 同步文件 if len(同步文件) > 1 else self.辅助同步文件
+        if 同步文件 == self.辅助同步文件:
+            self.removefile(self.独立同步文件)
         ionode = mynode == 0 or totalnode == 1
         if totalnode < 2:
             self.removefile(同步文件)
