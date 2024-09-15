@@ -168,6 +168,9 @@ class Settings(object):
             # 主进程使用默认的 alt(18) + q(81)
             cls.BossKey[0] = [18, 81]
             emulator = 'MuMu'
+        else:
+            for i in range(10):
+                cls.BossKey[i] = []
         if len(emulator) > 0:
             Instance_str = config.get('client', emulator+'_Instance', fallback=str(cls.win_Instance), raw=True)
             cls.win_Instance = eval(Instance_str)
@@ -1282,8 +1285,10 @@ class deviceOB:
                 self.客户端 = "win_LD"
             elif os.path.exists(Settings.MuMudir) and self.mynode in Settings.win_Instance.keys():
                 self.客户端 = "win_MuMu"
-            else:
+            elif len(self.LINKport) > 0:  # 通过网络访问的安卓设备
                 self.客户端 = "RemoteAndroid"
+            else:
+                self.客户端 = "USBAndroid"
         elif "linux" in self.控制端 and self.mynode in Settings.dockercontain.keys():  # Linux + docker
             self.客户端 = "lin_docker"
         elif len(self.LINKport) > 0:  # 通过网络访问的安卓设备
@@ -1305,6 +1310,13 @@ class deviceOB:
         #
         self.连接设备()
 
+    def 设备信息(self):
+        self.display_info = {}
+        if self.device:
+            self.display_info = self.device.display_info
+            self.width = self.display_info["width"]
+            self.height = self.display_info["height"]
+
     def 连接设备(self, times=1, timesMax=2):
         """
         # 尝试连接timesMax+1次,当前是times次
@@ -1315,6 +1327,7 @@ class deviceOB:
             self.device = connect_device(self.LINK)
             if self.device:
                 TimeECHO(f"{self.LINK}:链接成功")
+                self.设备信息()
                 return True
         except:
             if times == timesMax+1:
@@ -1322,6 +1335,13 @@ class deviceOB:
             TimeErr(f"{self.LINK}:链接失败")
             if "ios" in self.设备类型:
                 TimeECHO("重新插拔数据线")
+            if "android" in self.LINKtype:
+                # 检查adb的执行权限
+                result=getstatusoutput([str(self.adb_path),"version"])
+                if result[0] != 1:
+                    TimeErr(f"{self.adb_path} 执行错误")
+                    TimeErr(result[1])
+                    return False
         #
         if times < timesMax:
             TimeECHO(f"{self.LINK}:链接失败,启动设备再次连接")
@@ -1333,7 +1353,6 @@ class deviceOB:
             return self.连接设备(times+1, timesMax)
         else:
             TimeErr(f"{self.LINK}:链接失败,无法继续")
-            TimeErr(f"建议重置ADB: {self.adb_path} kill-server ")
             return False
 
     def 启动设备(self):
@@ -1492,6 +1511,42 @@ class deviceOB:
     def 重启重连设备(self, sleeptime=0):
         self.重启设备(sleeptime=sleeptime)
         self.连接设备()
+
+    def 解锁设备(self, sleeptime=0):
+        success = not self.device.is_locked()
+        if not success:
+            TimeECHO("屏幕已锁定")
+            # 先唤醒
+            self.device.wake()
+            # 再向上滑动解锁
+            if not "width" in self.display_info.keys():
+                self.设备信息()
+            w = self.display_info["width"]
+            h = self.display_info["height"]
+            swipe((w/2, h*0.9), (w/2, h*0.5))
+            # 尝试用airtest的解锁. 很容易失败
+            if self.device.is_locked():
+                print("滑动解锁失败")
+                self.device.unlock()
+                if self.device.is_locked():
+                    TimeECHO("unlock()方式解锁失败")
+            #
+            success = not self.device.is_locked()
+            if success:
+                TimeECHO(f"解锁成功")
+        return success
+
+    def 返回键(self):
+        self.device.keyevent("BACK")
+        TimeECHO(f"TOUCH.返回键")
+        sleep(0.5)
+        return
+
+    def HOME键(self):
+        self.device.keyevent("HOME")
+        TimeECHO(f"TOUCH.HOMOE键")
+        sleep(0.5)
+        return
 
 
 class appOB:
