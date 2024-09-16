@@ -286,11 +286,29 @@ def funs_name(level=2):
 
 
 # 如果命令需要等待打开的程序关闭, 这个命令很容易卡住
+# 不同subprocess.getstatusoutput的语法规则有差异
+# linux可以，subprocess.getstatusoutput("adb version"),subprocess.getstatusoutput(["adb","version"])就报错
+# 而windows刚好反过来
+# 该函数已被getPopen替代
 def getstatusoutput(*args, **kwargs):
     try:
         return subprocess.getstatusoutput(*args, **kwargs)
     except:
         return [1, traceback.format_exc()]
+#
+
+
+def getPopen(command):
+    try:
+        # shell用于支持$(cat )等命令, 并且只能用一个字符串
+        shell = len(command) == 1
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=shell)
+        sleep(2)  # 等待一下才有结果
+        stdout, stderr = process.communicate()
+        result = [len(stderr) > 0, stdout+stderr]
+    except:
+        result = [1, traceback.format_exc()]
+    return result
 
 
 def run_command(command=[], sleeptime=20,  quiet=False, must_ok=False):
@@ -315,13 +333,7 @@ def run_command(command=[], sleeptime=20,  quiet=False, must_ok=False):
         #
         try:
             # os.system的容易卡，各种命令兼容性也不好，subprocess.Popen可以直接填windows快捷方式里的内容
-            # shell用于支持$(cat )等命令, 并且只能用一个字符串
-            if len(i_command) == 1:
-                process = subprocess.Popen(i_command[0], shell=True)
-            else:
-                process = subprocess.Popen(i_command)
-            result = [0, str(process)]
-            # 运行成功的结果会直接输出的
+            result = getPopen(i_command)
         except:
             result = [1, traceback.format_exc()]
         command_step = command_step + 1
@@ -1322,6 +1334,10 @@ class deviceOB:
         # 尝试连接timesMax+1次,当前是times次
         """
         self.device = False
+        if times > timesMax:
+            TimeErr(f"{self.LINK}:链接失败次数达到上限{timesMax},无法继续")
+            return False
+        #
         TimeECHO(f"{self.LINK}:开始第{times}/{timesMax+1}次连接")
         try:
             self.device = connect_device(self.LINK)
@@ -1337,8 +1353,14 @@ class deviceOB:
                 TimeECHO("重新插拔数据线")
             if "android" in self.LINKtype:
                 # 检查adb的执行权限
-                result=getstatusoutput([str(self.adb_path),"version"])
-                if result[0] != 1:
+                result = getPopen([self.adb_path])
+                if "Android" in result[1]:
+                    result = getPopen([self.adb_path, "devices"])
+                    if self.LINKURL not in result[1]:
+                        TimeECHO(f"没有找到ADB设备{self.LINKURL}\n"+result[1])
+                        self.重启设备()
+                        return self.连接设备(times+1, timesMax)
+                else:
                     TimeErr(f"{self.adb_path} 执行错误")
                     TimeErr(result[1])
                     return False
@@ -1351,9 +1373,6 @@ class deviceOB:
             TimeECHO(f"{self.LINK}:链接失败,重启设备再次连接")
             self.重启设备()
             return self.连接设备(times+1, timesMax)
-        else:
-            TimeErr(f"{self.LINK}:链接失败,无法继续")
-            return False
 
     def 启动设备(self):
         if "android" in self.LINKtype:
@@ -1368,7 +1387,7 @@ class deviceOB:
                 TimeECHO(f"当前模式无法打开IOS")
                 return False
             # 获得运行的结果
-            result = getstatusoutput("tidevice list")
+            result = getPopen(["tidevice", "list"])
             if 'ConnectionType.USB' in result[1]:
                 # wdaproxy这个命令会同时调用xctest和relay，另外当wda退出时，会自动重新启动xctest
                 # tidevice不支持企业签名的WDA
@@ -1403,7 +1422,7 @@ class deviceOB:
             command.append([self.adb_path, "-s", self.LINKURL, "shell", "stop"])
             command.append([self.adb_path, "-s", self.LINKURL, "shell", "start"])
         elif self.客户端 == "USBAndroid":
-            result = getstatusoutput("adb devices")
+            result = getPopen([self.adb_path, "devices"])
             if self.LINKURL in result[1]:
                 command.append([self.adb_path, "-s", self.LINKURL, "reboot"])
             else:
@@ -1476,7 +1495,7 @@ class deviceOB:
             containID = f"{Settings.dockercontain[self.mynode]}"
             command.append(["docker", "stop", containID])
         elif self.客户端 == "USBAndroid":
-            result = getstatusoutput("adb devices")
+            result = getPopen([self.adb_path, "devices"])
             if self.LINKURL in result[1]:
                 command.append([self.adb_path, "-s", self.LINKURL, "reboot"])
             else:
@@ -1510,7 +1529,7 @@ class deviceOB:
 
     def 重启重连设备(self, sleeptime=0):
         self.重启设备(sleeptime=sleeptime)
-        self.连接设备()
+        return self.连接设备()
 
     def 解锁设备(self, sleeptime=0):
         success = not self.device.is_locked()
