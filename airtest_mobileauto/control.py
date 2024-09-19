@@ -1332,11 +1332,9 @@ class deviceOB:
     def 连接设备(self, times=1, timesMax=2):
         """
         # 尝试连接timesMax+1次,当前是times次
+        # 在timesMax次时，会尝试重启设备
         """
         self.device = False
-        if times > timesMax:
-            TimeErr(f"{self.LINK}:链接失败次数达到上限{timesMax},无法继续")
-            return False
         #
         TimeECHO(f"{self.LINK}:开始第{times}/{timesMax+1}次连接")
         try:
@@ -1358,8 +1356,9 @@ class deviceOB:
                     result = getPopen([self.adb_path, "devices"])
                     if self.LINKURL not in result[1]:
                         TimeECHO(f"没有找到ADB设备{self.LINKURL}\n"+result[1])
-                        self.重启设备()
-                        return self.连接设备(times+1, timesMax)
+                        if times == timesMax:
+                            self.重启设备()
+                            return self.连接设备(times+1, timesMax)
                 else:
                     TimeErr(f"{self.adb_path} 执行错误")
                     TimeErr(result[1])
@@ -1373,7 +1372,9 @@ class deviceOB:
             TimeECHO(f"{self.LINK}:链接失败,重启设备再次连接")
             self.重启设备()
             return self.连接设备(times+1, timesMax)
-
+        else:
+            TimeErr(f"{self.LINK}:链接失败次数达到上限{timesMax},无法继续")
+            return False
     def 启动设备(self):
         if "android" in self.LINKtype:
             # 避免其他adb程序占用导致卡住
