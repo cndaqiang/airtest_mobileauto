@@ -103,7 +103,11 @@ class Settings(object):
         config = configparser.ConfigParser()
         with open(config_file, 'r', encoding='utf-8') as f:
             config.read_file(f)
-        #
+        # node info
+        cls.mynode = config.getint('client', 'mynode', fallback=cls.mynode)
+        cls.totalnode = config.getint('client', 'totalnode', fallback=cls.totalnode)
+        cls.multiprocessing = config.getboolean('client', 'multiprocessing', fallback=cls.multiprocessing) and cls.totalnode > 1
+
         # control
         cls.prefix = config.get('control', 'prefix', fallback=cls.prefix)
         cls.figdir = config.get('control', 'figdir', fallback=cls.figdir)
@@ -123,19 +127,26 @@ class Settings(object):
             cls.logfile_dict[i] = ""
         logfile_dict_str = config.get('control', 'logfile', fallback=str(cls.logfile_dict), raw=True)
         cls.logfile_dict = eval(logfile_dict_str)
-        # 尝试删除文件
-        for i in range(10):
-            try:
-                if os.path.exists(cls.logfile_dict[i]):
-                    os.remove(cls.logfile_dict[i])
-            except:
-                pass
+        # 处理旧日志
+        print(cls.logfile_dict)
+        for i in cls.logfile_dict.keys():
+            if cls.multiprocessing:
+                if i >= cls.totalnode:
+                    continue
+            else:
+                if i != cls.mynode:
+                    continue
+            if os.path.exists(cls.logfile_dict[i]):
+                try:
+                    os.remove(cls.logfile_dict[i]+".old.txt")
+                except:
+                    pass
+                try:
+                    os.rename(cls.logfile_dict[i], cls.logfile_dict[i]+".old.txt")
+                except:
+                    pass
         #
         # client
-        cls.mynode = config.getint('client', 'mynode', fallback=cls.mynode)
-        cls.totalnode = config.getint('client', 'totalnode', fallback=cls.totalnode)
-        cls.multiprocessing = config.getboolean('client', 'multiprocessing', fallback=cls.multiprocessing) and cls.totalnode > 1
-        #
         dockercontain_str = config.get('client', 'dockercontain', fallback=str(cls.dockercontain), raw=True)
         cls.dockercontain = eval(dockercontain_str)
         #
@@ -1375,6 +1386,7 @@ class deviceOB:
         else:
             TimeErr(f"{self.LINK}:链接失败次数达到上限{timesMax},无法继续")
             return False
+
     def 启动设备(self):
         if "android" in self.LINKtype:
             # 避免其他adb程序占用导致卡住
