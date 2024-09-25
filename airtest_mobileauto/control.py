@@ -979,14 +979,18 @@ class DQWheel:
                 TimeECHO("NotFound "+keystr)
             return False
 
-    def touch_record_pos(self, record_pos=(0.5, 0.5), resolution=(960, 540), keystr="", savepos=False):
+    def cal_record_pos(self, record_pos=(0.5, 0.5), resolution=(960, 540), keystr="", savepos=False):
         x = 0.5*resolution[0]+record_pos[0]*resolution[0]
         y = 0.5*resolution[1]+record_pos[1]*resolution[0]
         pos = (x, y)
-        TimeECHO("touch_record_pos: "+keystr)
-        touch(pos)
         if savepos and len(keystr) > 0:
             self.var_dict[keystr] = pos
+        return pos
+
+    def touch_record_pos(self, record_pos=(0.5, 0.5), resolution=(960, 540), keystr="", savepos=False):
+        pos = self.cal_record_pos(record_pos=record_pos, resolution=resolution, keystr=keystr, savepos=savepos)
+        TimeECHO("touch (record_pos) "+keystr)
+        touch(pos)
         return True
 
     #
