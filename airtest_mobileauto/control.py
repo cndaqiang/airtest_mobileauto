@@ -1658,6 +1658,65 @@ class appOB:
         else:
             sleep(5)
             return True
+    #
+
+    def 前台APP(self, rebootimes=-1):
+        # only support android
+        if not self.device:
+            return ""
+        if "android" not in self.device.设备类型:
+            TimeECHO(f"{fun_name(1)}不支持{self.device.设备类型}")
+            return ""
+        #
+        try:
+            # airtest提供了一种查询的方法: adb shell dumpsys activity top | grep ACTIVI
+            # 目前适配我的android 8 和模拟器, 便不再自己造轮子了
+            # 后续可以在这里更新查询方法
+            packageid = self.device.device.get_top_activity_name()
+        except:
+            packageid = None
+        #
+        packageid = packageid if packageid else ""
+        # Default, 小于0, 返回当前ID
+        if rebootimes < 0:
+            return packageid if packageid else ""
+        # 等于0, 只判断是否和默认ID相同
+        if rebootimes == 0:
+            return self.APPID in self.前台APP()
+        #
+        # reboottimes > 0 则尝试校验前台APP是否和APPID相同
+        # 只能解决程序闪退，无法处理，程序卡在开屏界面的情况
+        TimeECHO(f"{fun_name(1)}开始校验前台APP is {self.APPID}")
+        printinfo = f"{fun_name(1)}前台APP校验通过={self.APPID}"
+        if self.APPID in self.前台APP():
+            TimeECHO(printinfo)
+            return self.APPID
+        #
+        TimeECHO(f"{fun_name(1)}开始打开APP")
+        self.打开APP()
+        sleep(30)
+        if self.APPID in self.前台APP():
+            TimeECHO(printinfo)
+            return self.APPID
+        #
+        TimeECHO(f"{fun_name(1)}开始重启APP")
+        self.重启APP()
+        if self.APPID in self.前台APP():
+            TimeECHO(printinfo)
+            return self.APPID
+        #
+        TimeECHO(f"{fun_name(1)}开始重启设备")
+        self.device.重启重连设备(10)
+        self.重启APP()
+        if self.APPID in packageid:
+            TimeECHO(printinfo)
+            return self.APPID
+        #
+        TimeECHO(f"{fun_name(1)}"+">"*10)
+        TimeECHO(f"{fun_name(1)}前台APP校验失败,模拟器有问题")
+        TimeECHO(f"{fun_name(1)}"+"<"*10)
+        #
+        return self.前台APP(rebootimes-1)
 
 
 class TaskManager:
