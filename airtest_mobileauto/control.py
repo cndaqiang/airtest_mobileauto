@@ -315,7 +315,13 @@ def getPopen(command):
         shell = len(command) == 1
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=shell)
         sleep(2)  # 等待一下才有结果
-        stdout, stderr = process.communicate()
+        # 这个命令有机会卡住，比如初次启动Bluestack时
+        try:
+            stdout, stderr = process.communicate(timeout=10)
+        except:
+            stdout = f"执行{command}超时"
+            stderr = ""
+        #
         result = [len(stderr) > 0, stdout+stderr]
     except:
         result = [1, traceback.format_exc()]
@@ -405,6 +411,7 @@ def getpid_win(IMAGENAME="HD-Player.exe", key="BlueStacks App Player 0"):
     try:
         command = ["tasklist", "-FI", f"IMAGENAME eq {IMAGENAME}", "/V"]
         process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
+        sleep(5) # 等待一下才有结果
         output, _ = process.communicate()
         # 中文的windows系统默认返回gbk的编码
         # 尝试使用不同编码解码输出
@@ -427,6 +434,7 @@ def getpid_win(IMAGENAME="HD-Player.exe", key="BlueStacks App Player 0"):
         TimeECHO(f"getpid_win({IMAGENAME}) error"+"-"*10)
         return 0
     PID = 0
+    TimeECHO(f"{fun_name(1)}.from {cont}")
     for task in cont:
         taskterm = task.split()
         if len(taskterm) < 3:
@@ -1669,7 +1677,8 @@ class appOB:
             return ""
         #
         try:
-            # airtest提供了一种查询的方法: adb shell dumpsys activity top | grep ACTIVI
+            # airtest提供了一种查询的方法: adb shell "dumpsys activity top | grep ACTIVI"
+            # 这个命令会返回所有的活动APP, airtest返回最后一个活动的APP
             # 目前适配我的android 8 和模拟器, 便不再自己造轮子了
             # 后续可以在这里更新查询方法
             packageid = self.device.device.get_top_activity_name()
@@ -1686,34 +1695,40 @@ class appOB:
         #
         # reboottimes > 0 则尝试校验前台APP是否和APPID相同
         # 只能解决程序闪退，无法处理，程序卡在开屏界面的情况
-        TimeECHO(f"{fun_name(1)}开始校验前台APP is {self.APPID}")
-        printinfo = f"{fun_name(1)}前台APP校验通过={self.APPID}"
+        TimeECHO(f"{fun_name(1)}: 开始校验前台APP is {self.APPID}")
+        printinfo = f"{fun_name(1)}: 前台APP校验通过={self.APPID}"
         if self.APPID in self.前台APP():
             TimeECHO(printinfo)
             return self.APPID
         #
-        TimeECHO(f"{fun_name(1)}开始打开APP")
+        TimeECHO(f"{fun_name(1)}: 开始打开APP")
         self.打开APP()
         sleep(30)
         if self.APPID in self.前台APP():
             TimeECHO(printinfo)
             return self.APPID
         #
-        TimeECHO(f"{fun_name(1)}开始重启APP")
+        TimeECHO(f"{fun_name(1)}: 开始重启APP")
+        self.重启APP()
+        if self.APPID in self.前台APP():
+            TimeECHO(printinfo)
+            return self.APPID
+        TimeECHO(f"{fun_name(1)}: 再次重启APP")
         self.重启APP()
         if self.APPID in self.前台APP():
             TimeECHO(printinfo)
             return self.APPID
         #
-        TimeECHO(f"{fun_name(1)}开始重启设备")
+        TimeECHO(f"{fun_name(1)}: 开始重启设备")
         self.device.重启重连设备(10)
-        self.重启APP()
+        self.打开APP()
+        sleep(30)
         if self.APPID in packageid:
             TimeECHO(printinfo)
             return self.APPID
         #
         TimeECHO(f"{fun_name(1)}"+">"*10)
-        TimeECHO(f"{fun_name(1)}前台APP校验失败,模拟器有问题")
+        TimeECHO(f"{fun_name(1)}: 前台APP校验失败,模拟器有问题")
         TimeECHO(f"{fun_name(1)}"+"<"*10)
         #
         return self.前台APP(rebootimes-1)
