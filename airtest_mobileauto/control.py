@@ -156,13 +156,22 @@ class Settings(object):
         emulator = ""
         cls.win_Instance = {}  # 模拟器启动的编号
         cls.win_InstanceName = {}  # 模拟器运行后的窗口名
+        #
         cls.BossKey = {}  # 老板键,快速隐藏APP
+        # 关于Bosskey的说明
         # BlueStacks/LDPlayer多开的不同模拟器，快捷键是相同的
-        # 在启动新的模拟器之前，按下Bosskey把所有的模拟器都调到前台，启动后，再全部隐藏
+        # 快捷键会让前台变后台，后天变前台。
+        # 因此：在启动新的模拟器之前，按下Bosskey把所有的模拟器都调到前台，启动后，再全部隐藏
+        # MuMu多开时会快捷键会提示冲突,
+        # 快捷键让所有的多开同时前台/后台
+        # [旧版本方案] 通过给不同模拟器指定不同的快捷键: ctrl + alt + mynode, cls.BossKey[i] = [17, 18, 48+i] 并且交叉启动模拟器，可以解决这些问题
+        # [新方案] 与BlueStack模拟器采用相同处理，快捷键前台-打开模拟器-快捷键后台. 即使存在快捷键冲突的提示，也可以成功隐藏模拟器
+        # 新方案的好处是代码和BlueStacks/LDPlayer通用
+        #
         if len(cls.BlueStackdir) > 0:
             cls.win_Instance[0] = "Nougat32"
             cls.win_InstanceName[0] = "BlueStacks App Player"
-            for i in range(1, 5):
+            for i in range(5):
                 cls.win_Instance[i] = f"{cls.win_Instance[0]}_{i}"
                 # BlueStacks没有提供终端开启关闭模拟器的方法，需要根据窗口名检索PID关闭模拟器
                 cls.win_InstanceName[i] = f"{cls.win_InstanceName[0]} {i}"
@@ -173,15 +182,10 @@ class Settings(object):
                 cls.win_Instance[i] = f"{i}"
                 cls.BossKey[i] = [17, 81]  # ctrl+q
             emulator = 'LDPlayer'
-        # MuMu多开时会快捷键冲突, 但是每个快捷键又能控制所有的多开
-        # 需要交叉启动模拟器，
         elif len(cls.MuMudir) > 0:
             for i in range(5):
                 cls.win_Instance[i] = f"{i}"
-                # 为了避免键位冲突，修改避免键为 ctrl + alt + mynode
-                cls.BossKey[i] = [17, 18, 48+i]
-            # 主进程使用默认的 alt(18) + q(81)
-            cls.BossKey[0] = [18, 81]
+                cls.BossKey[i] = [18, 81]  # alt+q
             emulator = 'MuMu'
         else:
             for i in range(10):
@@ -1482,8 +1486,17 @@ class deviceOB:
         # BossKey
         BossKey = Settings.BossKey[self.mynode]
         #
-        # 在启动新的模拟器之前，按下Bosskey把所有的模拟器都调到前台
-        if self.客户端 in ["win_BlueStacks", "win_LD"] and len(BossKey) > 0:
+        if len(BossKey) > 0:
+            # 交叉启动模拟器, 避免快捷键冲突
+            hour, minu, sec = DQWheel.time_getHMS()
+            while minu % (self.totalnode) != self.mynode or sec > 30:
+                if self.totalnode == 1:
+                    break
+                TimeECHO("等待启动时间中")
+                sleep(5)
+                hour, minu, sec = DQWheel.time_getHMS()
+            #
+            # 在启动新的模拟器之前，按下Bosskey把所有的模拟器都调到前台
             import win32api
             import win32con
             for ikey in BossKey:
@@ -1491,16 +1504,6 @@ class deviceOB:
             for ikey in BossKey[::-1]:
                 win32api.keybd_event(ikey, 0, win32con.KEYEVENTF_KEYUP, 0)
             sleep(5)
-        #
-        # 交叉启动模拟器
-        if self.客户端 in ["win_MuMu"] and len(BossKey) > 0:
-            hour, minu, sec = DQWheel.time_getHMS()
-            while minu % (self.totalnode*2) != self.mynode*2 or sec > 30:
-                if self.totalnode == 1:
-                    break
-                TimeECHO("等待启动时间中")
-                sleep(5)
-                hour, minu, sec = DQWheel.time_getHMS()
         #
         exit_code = run_command(command=command)
         #
