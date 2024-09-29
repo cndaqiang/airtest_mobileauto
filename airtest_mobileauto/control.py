@@ -157,6 +157,7 @@ class Settings(object):
         cls.win_Instance = {}  # 模拟器启动的编号
         cls.win_InstanceName = {}  # 模拟器运行后的窗口名
         #
+        cls.BossKeydict = {18: "alt", 17: "ctrl", 16: "shift", 88: "s", 81: "q"}
         cls.BossKey = {}  # 老板键,快速隐藏APP
         # 关于Bosskey的说明
         # BlueStacks/LDPlayer多开的不同模拟器，快捷键是相同的
@@ -1504,18 +1505,27 @@ class deviceOB:
             for ikey in BossKey[::-1]:
                 win32api.keybd_event(ikey, 0, win32con.KEYEVENTF_KEYUP, 0)
             sleep(5)
+            touchkey = ""
+            for ikey in BossKey:
+                if ikey in Settings.BossKeydict.keys():
+                    touchkey = touchkey+f" {Settings.BossKeydict[ikey]}"
+                else:
+                    touchkey = touchkey+" unknow"
+            TimeECHO(f"touch key: {touchkey}")
         #
         exit_code = run_command(command=command)
         #
         # 让客户端在后台运行
         BossKey = Settings.BossKey[self.mynode]
         if "win_" in self.客户端 and len(BossKey) > 0:
+            sleep(20)
             import win32api
             import win32con
             for ikey in BossKey:
                 win32api.keybd_event(ikey, 0, 0, 0)
             for ikey in BossKey[::-1]:
                 win32api.keybd_event(ikey, 0, win32con.KEYEVENTF_KEYUP, 0)
+            TimeECHO(f"touch key: {touchkey}")
         #
         if exit_code == 0:
             TimeECHO(f"启动成功")
@@ -1704,6 +1714,7 @@ class appOB:
             # 目前适配我的android 8 和模拟器, 便不再自己造轮子了
             # 后续可以在这里更新查询方法
             packageid = self.device.device.get_top_activity_name()
+            packageid = packageid.split("/")[0]
         except:
             packageid = None
         #
@@ -1713,12 +1724,19 @@ class appOB:
             return packageid if packageid else ""
         # 等于0, 只判断是否和默认ID相同
         if rebootimes == 0:
-            return self.APPID in self.前台APP()
+            if self.APPID in packageid:
+                if len(self.APPID) != len(packageid):
+                    TimeECHO(f"{fun_name(1)}: 注意APPID的差异 {self.APPID} vs {packageid}")
+                return True
+            else:
+                TimeECHO(f"{fun_name(1)}: 当前的前台APP is {packageid}")
+                return False
         #
         # reboottimes > 0 则尝试校验前台APP是否和APPID相同
         # 只能解决程序闪退，无法处理，程序卡在开屏界面的情况
         TimeECHO(f"{fun_name(1)}: 开始校验前台APP is {self.APPID}")
-        printinfo = f"{fun_name(1)}: 前台APP校验通过={self.APPID}"
+        TimeECHO(f"{fun_name(1)}: 当前的前台APP is {packageid}")
+        printinfo = f"{fun_name(1)}: 前台APP校验通过={packageid}"
         if self.APPID in self.前台APP():
             TimeECHO(printinfo)
             return self.APPID
