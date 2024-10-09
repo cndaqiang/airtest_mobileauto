@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='airtest_mobileauto',
-    version='1.3.19.8',
+    version='1.3.23',
     author='cndaqiang',
     author_email='who@cndaqiang.ac.cn',
     description='A robust, object-oriented, multi-process mobile app control framework based on AirTest, designed for stable and compatible debugging and automation of devices and apps. Ideal for tasks such as game automation in titles like Honor of Kings, with enhanced stability features including connection checks, automatic retries on failure, and automatic restarts for continuous operation.',
@@ -24,15 +24,10 @@ setup(
         # macOS 和 Linux 系统没有额外依赖，所以这里可以不写
     },
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
         'Topic :: Utilities',
     ],
     python_requires='>=3.6',

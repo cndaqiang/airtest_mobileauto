@@ -157,7 +157,7 @@ class Settings(object):
         cls.win_Instance = {}  # 模拟器启动的编号
         cls.win_InstanceName = {}  # 模拟器运行后的窗口名
         #
-        cls.BossKeydict = {18: "alt", 17: "ctrl", 16: "shift", 88: "s", 81: "q"}
+        cls.BossKeydict = {18: "alt", 17: "ctrl", 16: "shift", 88: "x", 81: "q"}
         cls.BossKey = {}  # 老板键,快速隐藏APP
         # 关于Bosskey的说明
         # BlueStacks/LDPlayer多开的不同模拟器，快捷键是相同的
@@ -468,6 +468,32 @@ def getpid_win(IMAGENAME="HD-Player.exe", key="BlueStacks App Player 0"):
                 PID = 0
             break
     return PID
+
+
+def touchkey_win(Key=[]):
+    if Settings.platform != "win32":
+        TimeECHO(f"平台{Settings.platform} not support {fun_name(1)}")
+        return False
+    try:
+        import win32api
+        import win32con
+    except:
+        traceback.print_exc()
+        return False
+    #
+    touchkey = ""
+    for ikey in Key:
+        if ikey in Settings.BossKeydict.keys():
+            touchkey = touchkey+f" {Settings.BossKeydict[ikey]}"
+        else:
+            touchkey = touchkey+" unknow"
+    TimeECHO(f"{fun_name(1)}: {touchkey}")
+    #
+    for ikey in Key:
+        win32api.keybd_event(ikey, 0, 0, 0)
+    for ikey in Key[::-1]:
+        win32api.keybd_event(ikey, 0, win32con.KEYEVENTF_KEYUP, 0)
+    sleep(5)
 
 
 def connect_status(times=10):
@@ -1006,7 +1032,7 @@ class DQWheel:
 
     def touch_record_pos(self, record_pos=(0.5, 0.5), resolution=(960, 540), keystr="", savepos=False):
         pos = self.cal_record_pos(record_pos=record_pos, resolution=resolution, keystr=keystr, savepos=savepos)
-        TimeECHO("touch (record_pos) "+keystr)
+        TimeECHO("touch (record_pos) "+keystr+f"{pos}")
         touch(pos)
         return True
 
@@ -1496,36 +1522,14 @@ class deviceOB:
                 TimeECHO("等待启动时间中")
                 sleep(5)
                 hour, minu, sec = DQWheel.time_getHMS()
-            #
             # 在启动新的模拟器之前，按下Bosskey把所有的模拟器都调到前台
-            import win32api
-            import win32con
-            for ikey in BossKey:
-                win32api.keybd_event(ikey, 0, 0, 0)
-            for ikey in BossKey[::-1]:
-                win32api.keybd_event(ikey, 0, win32con.KEYEVENTF_KEYUP, 0)
+            touchkey_win(BossKey)
             sleep(5)
-            touchkey = ""
-            for ikey in BossKey:
-                if ikey in Settings.BossKeydict.keys():
-                    touchkey = touchkey+f" {Settings.BossKeydict[ikey]}"
-                else:
-                    touchkey = touchkey+" unknow"
-            TimeECHO(f"touch key: {touchkey}")
         #
         exit_code = run_command(command=command)
         #
         # 让客户端在后台运行
-        BossKey = Settings.BossKey[self.mynode]
-        if "win_" in self.客户端 and len(BossKey) > 0:
-            sleep(20)
-            import win32api
-            import win32con
-            for ikey in BossKey:
-                win32api.keybd_event(ikey, 0, 0, 0)
-            for ikey in BossKey[::-1]:
-                win32api.keybd_event(ikey, 0, win32con.KEYEVENTF_KEYUP, 0)
-            TimeECHO(f"touch key: {touchkey}")
+        touchkey_win(BossKey)
         #
         if exit_code == 0:
             TimeECHO(f"启动成功")
@@ -1548,7 +1552,23 @@ class deviceOB:
         elif self.客户端 == "win_BlueStacks":
             # 尝试获取PID
             PID = getpid_win(IMAGENAME="HD-Player.exe", key=Settings.win_InstanceName[self.mynode])
-            # BlueStacks App Player 3
+            if PID <= 0:
+                TimeECHO("如果BlueStacks在后台时，需要先调到前台才能获得准确的PID")
+                BossKey = Settings.BossKey[self.mynode]
+                if len(BossKey) > 0:
+                    # 交叉关闭模拟器, 避免快捷键冲突
+                    hour, minu, sec = DQWheel.time_getHMS()
+                    while minu % (self.totalnode) != self.mynode or sec > 30:
+                        if self.totalnode == 1:
+                            break
+                        TimeECHO("等待关闭时间中")
+                        sleep(5)
+                        hour, minu, sec = DQWheel.time_getHMS()
+                    # 在获得模拟器名称前，按下Bosskey把所有的模拟器都调到前台
+                    touchkey_win(BossKey)
+                    sleep(5)
+                    PID = getpid_win(IMAGENAME="HD-Player.exe", key=Settings.win_InstanceName[self.mynode])
+                    touchkey_win(BossKey)
             if PID > 0:
                 command.append(["taskkill", "/F", "/FI", f"PID eq {str(PID)}"])
             else:
@@ -1737,35 +1757,22 @@ class appOB:
         TimeECHO(f"{fun_name(1)}: 开始校验前台APP is {self.APPID}")
         TimeECHO(f"{fun_name(1)}: 当前的前台APP is {packageid}")
         printinfo = f"{fun_name(1)}: 前台APP校验通过={packageid}"
-        if self.APPID in self.前台APP():
-            TimeECHO(printinfo)
-            return self.APPID
-        #
-        TimeECHO(f"{fun_name(1)}: 开始打开APP")
-        self.打开APP()
-        sleep(30)
-        if self.APPID in self.前台APP():
-            TimeECHO(printinfo)
-            return self.APPID
-        #
-        TimeECHO(f"{fun_name(1)}: 开始重启APP")
-        self.重启APP()
-        if self.APPID in self.前台APP():
-            TimeECHO(printinfo)
-            return self.APPID
-        TimeECHO(f"{fun_name(1)}: 再次重启APP")
-        self.重启APP()
-        if self.APPID in self.前台APP():
-            TimeECHO(printinfo)
-            return self.APPID
-        #
-        TimeECHO(f"{fun_name(1)}: 开始重启设备")
-        self.device.重启重连设备(10)
-        self.打开APP()
-        sleep(30)
         if self.APPID in packageid:
             TimeECHO(printinfo)
             return self.APPID
+
+        for i in range(6):
+            TimeECHO(f"{fun_name(1)}: 第{i+1}次打开APP")
+            self.打开APP()
+            sleep(30)
+            packageid = self.前台APP()
+            if self.APPID in packageid:
+                printinfo = f"{fun_name(1)}: 前台APP校验通过={packageid}"
+                TimeECHO(printinfo)
+                return self.APPID
+            if i == 2:
+                TimeECHO(f"{fun_name(1)}: 重启设备后再次尝试")
+                self.device.重启重连设备(10)
         #
         TimeECHO(f"{fun_name(1)}"+">"*10)
         TimeECHO(f"{fun_name(1)}: 前台APP校验失败,模拟器有问题")
