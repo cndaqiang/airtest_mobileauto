@@ -42,6 +42,7 @@ ST.THRESHOLD = 0.8  # 其他语句的默认阈值
 
 # 控制屏幕输出
 # 这个设置可以极低的降低airtest输出到屏幕的信息
+# 但是在关闭设备后(airtest无法工作)，就不可以在用logger()输出信息了，会出错
 logger = logging.getLogger("airtest")
 logger.setLevel(logging.WARNING)
 #
@@ -986,6 +987,7 @@ class DQWheel:
                 判断元素集合[0], 判断元素集合[idx] = 判断元素集合[idx], 判断元素集合[0]
                 if savepos:
                     self.var_dict[strinfo] = pos
+                    self.save_dict(self.var_dict, self.var_dict_file)
                 return True, 判断元素集合
         return False, 判断元素集合
 
@@ -1028,6 +1030,7 @@ class DQWheel:
         pos = (x, y)
         if savepos and len(keystr) > 0:
             self.var_dict[keystr] = pos
+            self.save_dict(self.var_dict, self.var_dict_file)
         return pos
 
     def touch_record_pos(self, record_pos=(0.5, 0.5), resolution=(960, 540), keystr="", savepos=False):
@@ -1660,18 +1663,102 @@ class deviceOB:
         TimeECHO(f"TOUCH.HOMOE键")
         sleep(0.5)
         return
+    #
+
+    def shell(self, command=[], sleeptime=20,  quiet=False, must_ok=False):
+        # 暂时仅支持android
+        """
+        adb shell ...
+        """
+        if not self.LINKtype == "android":
+            TimeECHO(f"{fun_name(1)}暂不支持{self.LINKtype}")
+            return -100
+        #
+        exit_code_o = 0
+        command_step = 0
+        # 获得运行的结果
+        if not quiet:
+            TimeECHO(funs_name())
+        for i_command in command:
+            if len(i_command) < 1:
+                continue
+            # 去掉所有的空白符号看是否还有剩余命令
+            trim_insert = shlex.join(i_command).strip()
+            if len(trim_insert) < 1:
+                continue
+            if not quiet:
+                TimeECHO("  devices shell:"+trim_insert)
+            try:
+                result = [0, str(self.device.adb.shell(i_command))]
+            except:
+                result = [1, traceback.format_exc()]
+            command_step = command_step + 1
+            exit_code = result[0]
+            if not quiet:
+                if exit_code != 0:
+                    TimeECHO("result:"+">"*20)
+                    TimeECHO(result[1])
+                    TimeECHO("result:"+"<"*20)
+            exit_code_o += exit_code
+            if must_ok and exit_code_o != 0:
+                break
+            sleep(sleeptime)
+        # 没有执行任何命令
+        if command_step == 0:
+            exit_code_o = -100
+        return exit_code_o
+
+    def 打开网址(self, url="https://cndaqiang.github.io/WZRY"):
+        """
+        adb shell am start -a android.intent.action.VIEW -d  https://cndaqiang.github.io
+        self.device.adb.shell(['am', 'start', '-a', 'android.intent.action.VIEW','-d', url ])
+        """
+        if len(url) < 1:
+            return
+        command = []
+        if self.LINKtype == "android":
+            command.append(['am', 'start', '-a', 'android.intent.action.VIEW', '-d', url])
+        else:
+            TimeECHO(f"{fun_name(1)}暂不支持{self.LINKtype}")
+            return -100
+        return self.shell(command)
 
 
 class appOB:
     def __init__(self, APPID="", big=False, device=None):
-        self.APPID = APPID
+        # 配置device
+        self.deviceOB = device
+        self.big = big  # 是不是大型的程序, 容易卡顿，要多等待一会
+        #
+        # 开始校验APPID
+        self.APPID = APPID if len(APPID) > 0 else self.前台APP()
         self.Activity = None if "/" not in self.APPID else self.APPID.split("/")[1]
         self.APPID = self.APPID.split("/")[0]
-        self.device = device
-        self.big = big  # 是不是大型的程序, 容易卡顿，要多等待一会
+        #
+        # 校验是否存在APP, 不同地区的APPID可能存在差异，例如mark.via, mark.via.gp
+        self.HaveAPP = len(self.APPID) > 0
+        self.APPlist = []
+        if self.deviceOB:
+            try:
+                self.APPlist = self.deviceOB.device.list_app()
+            except:
+                TimeECHO("appOB.获取app_list失败")
+                self.APPlist = []
+            if self.APPID not in self.APPlist and len(self.APPID) > 0:
+                self.HaveAPP = False
+                for app in self.APPlist:
+                    if self.APPID in str(app):
+                        TimeECHO(f"更正APPID从{self.APPID}到{app}]")
+                        self.APPID = str(app)
+                        self.HaveAPP = True
+                        break
     #
 
     def 打开APP(self):
+        if not self.HaveAPP:
+            TimeECHO(f"{fun_name(1)}:不存在{self.APPID},return")
+            return False
+        #
         if self.Activity:
             TimeECHO(f"打开APP[{self.APPID}/{self.Activity}]中")
             启动成功 = start_app(self.APPID, self.Activity)
@@ -1686,13 +1773,17 @@ class appOB:
         return True
 
     def 重启APP(self, sleeptime=0):
+        if not self.HaveAPP:
+            TimeECHO(f"{fun_name(1)}:不存在{self.APPID},return")
+            return False
+        #
         TimeECHO(f"重启APP中")
         self.关闭APP()
         sleep(10)
         sleeptime = max(10, sleeptime)  # 这里的单位是s
         printtime = max(30, sleeptime/10)
-        if sleeptime > 60*60 and self.device:  # >1h
-            self.device.重启重连设备(sleeptime)
+        if sleeptime > 60*60 and self.deviceOB:  # >1h
+            self.deviceOB.重启重连设备(sleeptime)
         else:
             TimeECHO("sleep %d min" % (sleeptime/60))
             nstep = int(sleeptime/printtime)
@@ -1711,6 +1802,10 @@ class appOB:
     #
 
     def 关闭APP(self):
+        if not self.HaveAPP:
+            TimeECHO(f"{fun_name(1)}:不存在{self.APPID},return")
+            return False
+        #
         TimeECHO(f"关闭APP[{self.APPID}]中")
         if not stop_app(self.APPID):
             TimeErr("关闭失败,可能失联")
@@ -1721,11 +1816,12 @@ class appOB:
     #
 
     def 前台APP(self, rebootimes=-1):
+        #
         # only support android
-        if not self.device:
+        if not self.deviceOB:
             return ""
-        if "android" not in self.device.设备类型:
-            TimeECHO(f"{fun_name(1)}不支持{self.device.设备类型}")
+        if "android" not in self.deviceOB.设备类型:
+            TimeECHO(f"{fun_name(1)}不支持{self.deviceOB.设备类型}")
             return ""
         #
         try:
@@ -1733,7 +1829,7 @@ class appOB:
             # 这个命令会返回所有的活动APP, airtest返回最后一个活动的APP
             # 目前适配我的android 8 和模拟器, 便不再自己造轮子了
             # 后续可以在这里更新查询方法
-            packageid = self.device.device.get_top_activity_name()
+            packageid = self.deviceOB.device.get_top_activity_name()
             packageid = packageid.split("/")[0]
         except:
             packageid = None
@@ -1772,7 +1868,7 @@ class appOB:
                 return self.APPID
             if i == 2:
                 TimeECHO(f"{fun_name(1)}: 重启设备后再次尝试")
-                self.device.重启重连设备(10)
+                self.deviceOB.重启重连设备(10)
         #
         TimeECHO(f"{fun_name(1)}"+">"*10)
         TimeECHO(f"{fun_name(1)}: 前台APP校验失败,模拟器有问题")
@@ -1829,5 +1925,3 @@ class TaskManager:
         with multiprocessing.Pool(processes=m_process) as pool:
             results = pool.map(self.single_execute, range(m_process))
             TimeDebug("Mapping started, waiting for results...")
-            pool.close()
-            pool.join()
