@@ -1,2 +1,3 @@
 airtest
 numpy
+pyyaml

@@ -19,8 +19,8 @@ import random
 import traceback
 import subprocess
 import shlex
-import configparser
 import multiprocessing
+import yaml
 # 重写函数#
 from airtest.core.api import connect_device, sleep
 from airtest.core.api import exists as exists_o
@@ -46,6 +46,46 @@ ST.THRESHOLD = 0.8  # 其他语句的默认阈值
 logger = logging.getLogger("airtest")
 logger.setLevel(logging.WARNING)
 #
+
+
+class readyaml():
+    def __init__(self, yamlfile=""):
+        self.yamlfile = yamlfile
+        try:
+            with open(yamlfile,  'r', encoding='utf-8') as f:
+                self.yaml_dict = yaml.load(f, Loader=yaml.FullLoader)
+            TimeECHO(f"读取{yamlfile}")
+        except:
+            TimeECHO(f"读取{yamlfile}失败")
+            self.yaml_dict = {}
+    #
+
+    def get(self, tag="", fallback=None):
+        if tag in self.yaml_dict.keys():
+            fallback = self.yaml_dict[tag]
+        #
+        return fallback
+    #
+
+    def getint(self, tag="", fallback=None):
+        try:
+            fallback = self.get(tag, fallback)
+            fallback = int(fallback)
+        except:
+            TimeECHO(f"{funs_name()}.读取{self.yamlfile}失败，参数{tag}设置错误,采用默认值")
+        #
+        return fallback
+    #
+
+    def getboolean(self, tag="", fallback=None):
+        try:
+            fallback = self.get(tag, fallback)
+            fallback = bool(fallback)
+        except:
+            TimeECHO(f"{funs_name()}.读取{self.yamlfile}失败，参数{tag}设置错误,采用默认值")
+        #
+        return fallback
+    #
 
 
 class Settings(object):
@@ -98,38 +138,38 @@ class Settings(object):
     #
 
     @classmethod
-    def Config(cls, config_file="config.in"):
+    def Config(cls, config_file="config.yaml"):
         if not os.path.exists(config_file):
             return
-        config = configparser.ConfigParser()
-        with open(config_file, 'r', encoding='utf-8') as f:
-            config.read_file(f)
+        if ".yaml" == config_file[-5:]:
+            config = readyaml(config_file)
+        else:
+            TimeECHO("airtest_mobileauto已采用yaml格式配置文件，请升级相关程序")
+            exit()
         # node info
-        cls.mynode = config.getint('client', 'mynode', fallback=cls.mynode)
-        cls.totalnode = config.getint('client', 'totalnode', fallback=cls.totalnode)
-        cls.multiprocessing = config.getboolean('client', 'multiprocessing', fallback=cls.multiprocessing) and cls.totalnode > 1
+        cls.mynode = config.getint('mynode', cls.mynode)
+        cls.totalnode = config.getint('totalnode', cls.totalnode)
+        cls.multiprocessing = config.getboolean('multiprocessing', cls.multiprocessing) and cls.totalnode > 1
 
         # control
-        cls.prefix = config.get('control', 'prefix', fallback=cls.prefix)
-        cls.figdir = config.get('control', 'figdir', fallback=cls.figdir)
+        cls.prefix = config.get('prefix', cls.prefix)
+        cls.figdir = config.get('figdir', cls.figdir)
         #
-        mobiletime = config.getint('control', 'mobiletime', fallback=cls.mobiletime)
-        eastern_eight_offset = timedelta(hours=mobiletime)
+        cls.mobiletime = config.getint('mobiletime', cls.mobiletime)
+        eastern_eight_offset = timedelta(hours=cls.mobiletime)
         cls.eastern_eight_tz = timezone(eastern_eight_offset)
         #
-        cls.logger_level = config.getint('control', 'logger_level', fallback=cls.logger_level)
+        cls.logger_level = config.getint('logger_level', cls.logger_level)
         level = Settings.logger_dict[Settings.logger_level]
         logging.basicConfig(level=level, format='%(message)s')
         logger = logging.getLogger("airtest_mobileauto")
         logger.setLevel(level)
-        cls.outputnode = config.getint('control', 'outputnode', fallback=cls.outputnode)
+        cls.outputnode = config.getint('outputnode', cls.outputnode)
         # 输入日志到文件
         for i in range(10):
             cls.logfile_dict[i] = ""
-        logfile_dict_str = config.get('control', 'logfile', fallback=str(cls.logfile_dict), raw=True)
-        cls.logfile_dict = eval(logfile_dict_str)
+        cls.logfile_dict = config.get('logfile', cls.logfile_dict)
         # 处理旧日志
-        print(cls.logfile_dict)
         for i in cls.logfile_dict.keys():
             if cls.multiprocessing:
                 if i >= cls.totalnode:
@@ -148,12 +188,11 @@ class Settings(object):
                     pass
         #
         # client
-        dockercontain_str = config.get('client', 'dockercontain', fallback=str(cls.dockercontain), raw=True)
-        cls.dockercontain = eval(dockercontain_str)
+        cls.dockercontain = config.get('dockercontain', cls.dockercontain)
         #
-        cls.BlueStackdir = config.get('client', 'BlueStackdir', fallback=cls.BlueStackdir)
-        cls.LDPlayerdir = config.get('client', 'LDPlayerdir', fallback=cls.LDPlayerdir)
-        cls.MuMudir = config.get('client', 'MuMudir', fallback=cls.MuMudir)
+        cls.BlueStackdir = config.get('BlueStackdir', cls.BlueStackdir)
+        cls.LDPlayerdir = config.get('LDPlayerdir', cls.LDPlayerdir)
+        cls.MuMudir = config.get('MuMudir', cls.MuMudir)
         emulator = ""
         cls.win_Instance = {}  # 模拟器启动的编号
         cls.win_InstanceName = {}  # 模拟器运行后的窗口名
@@ -193,13 +232,10 @@ class Settings(object):
             for i in range(10):
                 cls.BossKey[i] = []
         if len(emulator) > 0:
-            Instance_str = config.get('client', emulator+'_Instance', fallback=str(cls.win_Instance), raw=True)
-            cls.win_Instance = eval(Instance_str)
-            Windows_str = config.get('client', emulator+'_Windows', fallback=str(cls.win_InstanceName), raw=True)
-            cls.win_InstanceName = eval(Windows_str)
+            cls.win_Instance = config.get(emulator+'_Instance', cls.win_Instance)
+            cls.win_InstanceName = config.get(emulator+'_Windows', cls.win_InstanceName)
             # 是否替换默认的BossKey
-            BossKey_str = config.get('client', 'BossKey', fallback=str({}), raw=True)
-            BossKey = eval(BossKey_str)
+            BossKey = config.get('BossKey', cls.BossKey)
             cls.BossKey.update(BossKey)
         #
         # 读取LINK_dict，假设配置文件中存储的是字符串形式的字典
@@ -215,8 +251,7 @@ class Settings(object):
         cls.LINK_dict[8] = "ios:///http://169.254.83.56:8100"  # Iphone 11支持无线连接
         cls.LINK_dict[9] = "Android:///emulator-5554"  # 本地的安卓模拟器
         cls.LINK_dict[10] = "Android:///4e86ac13"  # usb连接的安卓手机
-        link_dict_str = config.get('client', 'LINK_dict', fallback=str(cls.LINK_dict), raw=True)
-        cls.LINK_dict = eval(link_dict_str)
+        cls.LINK_dict = config.get('LINK_dict', cls.LINK_dict)
         #
         # 初始化之后，根据参数修改配置
         cls.logfile = cls.logfile_dict[cls.mynode]
@@ -675,7 +710,7 @@ def Template(*args, **kwargs):
 
 
 class DQWheel:
-    def __init__(self, var_dict_file='var_dict_file.txt', mynode=-10, totalnode=-10):
+    def __init__(self, var_dict_file='var_dict_file.yaml', mynode=-10, totalnode=-10):
         self.timedict = {}
         self.辅助同步文件 = "NeedRebarrier.txt"
         self.mynode = mynode
@@ -917,12 +952,19 @@ class DQWheel:
         TimeErr(f"barriernode>{name}<同步失败,创建同步文件")
         self.touch同步文件()
         return False
-    # 读取变量
-    # read_dict 不仅适合保存字典,而且适合任意的变量类型
 
-    def read_dict(self, var_dict_file="position_dict.txt"):
-        global 辅助
-        # if 辅助: return {}
+    def read_dict(self, var_dict_file="position_dict.yaml"):
+        # 读取变量
+        # read_dict 不仅适合保存字典,而且适合任意的变量类型
+        if ".yaml" == var_dict_file[-5:]:
+            try:
+                # 写入 YAML 文件
+                with open(var_dict_file,  'r', encoding='utf-8') as f:
+                    var_dict = yaml.load(f, Loader=yaml.FullLoader)
+                TimeECHO(f"读取{var_dict_file}")
+                return var_dict
+            except:
+                TimeErr(f"读取yaml文件{var_dict_file}失败")
         import pickle
         var_dict = {}
         if os.path.exists(var_dict_file):
@@ -930,12 +972,19 @@ class DQWheel:
             with open(var_dict_file, 'rb') as f:
                 var_dict = pickle.load(f)
         return var_dict
-        # 保存变量
-    # save_dict 不仅适合保存字典,而且适合任意的变量类型
 
-    def save_dict(self, var_dict, var_dict_file="position_dict.txt"):
-        global 辅助
-        # if 辅助: return True
+    def save_dict(self, var_dict, var_dict_file="position_dict.yaml"):
+        # 保存变量
+        # save_dict 不仅适合保存字典,而且适合任意的变量类型
+        if ".yaml" == var_dict_file[-5:]:
+            try:
+                # 写入 YAML 文件
+                with open(var_dict_file, 'w', encoding='utf-8') as f:
+                    yaml.dump(var_dict, f, allow_unicode=True)
+                TimeECHO(f"保存{var_dict_file}")
+                return
+            except:
+                TimeErr(f"写入yaml文件{var_dict_file}失败")
         import pickle
         f = open(var_dict_file, "wb")
         pickle.dump(var_dict, f)
@@ -1294,50 +1343,6 @@ class DQWheel:
         # 该命令无法结束,直接return吧
         # sys.exit()
 
-    # 旧脚本,适合几个程序,自动商量node编号
-
-    def autonode(self, totalnode):
-        if totalnode < 2:
-            return 0
-        node = -10
-        PID = os.getpid()
-        filename = "init_node."+str(totalnode)+"."+str(PID)+".txt"
-        self.touchfile(filename)
-        TimeECHO("自动生成node中:"+filename)
-        PID_dict = {}
-        for i in np.arange(60):
-            for name in os.listdir("."):
-                if "init_node."+str(totalnode)+"." in name:
-                    PID_dict[name] = name
-            if len(PID_dict) == totalnode:
-                break
-            sleep(5)
-        if len(PID_dict) != totalnode:
-            self.removefile(filename)
-            TimeECHO("文件数目不匹配")
-            return node
-        #
-        strname = np.array(list(PID_dict.keys()))
-        PIDarr = np.zeros(strname.size)
-        for i in np.arange(PIDarr.size):
-            PIDarr[i] = int(strname[i].split(".")[2])
-        PIDarr = np.sort(PIDarr)
-        for i in np.arange(PIDarr.size):
-            TimeECHO("i="+str(i)+". PID="+str(PID)+". PIDarr[i]="+str(PIDarr[i]))
-            if PID == PIDarr[i]:
-                node = i
-
-        if node < 0:
-            TimeECHO("node < 0")
-            self.removefile(filename)
-            return node
-        #
-        TimeECHO("mynode:"+str(node))
-        if self.barriernode(node, totalnode, "audfonode"):
-            self.removefile(filename)
-            return node
-
-
 class deviceOB:
     def __init__(self, 设备类型=None, mynode=0, totalnode=1, LINK="Android:///"+"127.0.0.1:"+str(5555)):
         # 控制端
@@ -1642,7 +1647,7 @@ class deviceOB:
             swipe((w/2, h*0.9), (w/2, h*0.5))
             # 尝试用airtest的解锁. 很容易失败
             if self.device.is_locked():
-                print("滑动解锁失败")
+                TimeECHO("滑动解锁失败")
                 self.device.unlock()
                 if self.device.is_locked():
                     TimeECHO("unlock()方式解锁失败")
