@@ -54,9 +54,10 @@ class readyaml():
         try:
             with open(yamlfile,  'r', encoding='utf-8') as f:
                 self.yaml_dict = yaml.load(f, Loader=yaml.FullLoader)
-            TimeECHO(f"读取{yamlfile}")
+            TimeECHO(f"{funs_name()}.读取{yamlfile}")
         except:
-            TimeECHO(f"读取{yamlfile}失败")
+            traceback.print_exc()
+            TimeECHO(f"{funs_name()}.读取{yamlfile}失败")
             self.yaml_dict = {}
     #
 
@@ -86,6 +87,15 @@ class readyaml():
         #
         return fallback
     #
+
+    def getstr(self, tag="", fallback=None):
+        try:
+            fallback = self.get(tag, fallback)
+            fallback = str(fallback)
+        except:
+            TimeECHO(f"{funs_name()}.读取{self.yamlfile}失败，参数{tag}设置错误,采用默认值")
+        #
+        return fallback
 
 
 class Settings(object):
@@ -152,7 +162,7 @@ class Settings(object):
         cls.multiprocessing = config.getboolean('multiprocessing', cls.multiprocessing) and cls.totalnode > 1
 
         # control
-        cls.prefix = config.get('prefix', cls.prefix)
+        cls.prefix = config.getstr('prefix', cls.prefix)
         cls.figdir = config.get('figdir', cls.figdir)
         #
         cls.mobiletime = config.getint('mobiletime', cls.mobiletime)
@@ -190,9 +200,9 @@ class Settings(object):
         # client
         cls.dockercontain = config.get('dockercontain', cls.dockercontain)
         #
-        cls.BlueStackdir = config.get('BlueStackdir', cls.BlueStackdir)
-        cls.LDPlayerdir = config.get('LDPlayerdir', cls.LDPlayerdir)
-        cls.MuMudir = config.get('MuMudir', cls.MuMudir)
+        cls.BlueStackdir = config.getstr('BlueStackdir', cls.BlueStackdir)
+        cls.LDPlayerdir = config.getstr('LDPlayerdir', cls.LDPlayerdir)
+        cls.MuMudir = config.getstr('MuMudir', cls.MuMudir)
         emulator = ""
         cls.win_Instance = {}  # 模拟器启动的编号
         cls.win_InstanceName = {}  # 模拟器运行后的窗口名
@@ -958,13 +968,14 @@ class DQWheel:
         # read_dict 不仅适合保存字典,而且适合任意的变量类型
         if ".yaml" == var_dict_file[-5:]:
             try:
-                # 写入 YAML 文件
+                # 读取 YAML 文件
                 with open(var_dict_file,  'r', encoding='utf-8') as f:
                     var_dict = yaml.load(f, Loader=yaml.FullLoader)
                 TimeECHO(f"读取{var_dict_file}")
                 return var_dict
             except:
-                TimeErr(f"读取yaml文件{var_dict_file}失败")
+                traceback.print_exc()
+                TimeErr(f"{funs_name()}读取yaml文件{var_dict_file}失败")
         import pickle
         var_dict = {}
         if os.path.exists(var_dict_file):
@@ -984,7 +995,8 @@ class DQWheel:
                 TimeECHO(f"保存{var_dict_file}")
                 return
             except:
-                TimeErr(f"写入yaml文件{var_dict_file}失败")
+                traceback.format_exc()
+                TimeErr(f"{funs_name()}写入yaml文件{var_dict_file}失败")
         import pickle
         f = open(var_dict_file, "wb")
         pickle.dump(var_dict, f)
@@ -1255,9 +1267,9 @@ class DQWheel:
         if not 同步成功:
             self.touch同步文件(全部通信失败文件)
         同步成功 = 同步成功 and not os.path.exists(全部通信失败文件)
+        file_sleeptime = ".tmp.barrier.sleeptime.txt"
         if 同步成功:
             TimeECHO("同步等待成功")
-            file_sleeptime = ".tmp.barrier.sleeptime.txt"
             if ionode:
                 TimeECHO(f"存储sleeptime到[{file_sleeptime}]")
                 self.touchfile(filename=file_sleeptime, content=str(sleeptime))
@@ -1274,11 +1286,11 @@ class DQWheel:
         else:
             TimeErr("同步等待失败")
             return False
-
         #
         self.barriernode(mynode, totalnode, "同步等待结束")
         TimeECHO(f"需要sleep{sleeptime}")
         sleep(sleeptime)
+        self.removefile(file_sleeptime)
         return not os.path.exists(同步文件)
 
     @staticmethod
@@ -1342,6 +1354,7 @@ class DQWheel:
         return
         # 该命令无法结束,直接return吧
         # sys.exit()
+
 
 class deviceOB:
     def __init__(self, 设备类型=None, mynode=0, totalnode=1, LINK="Android:///"+"127.0.0.1:"+str(5555)):
@@ -1486,13 +1499,13 @@ class deviceOB:
                 return False
         # android
         elif self.客户端 == "win_BlueStacks":
-            instance = Settings.win_Instance[self.mynode]
+            instance = str(Settings.win_Instance[self.mynode])
             command.append([os.path.join(Settings.BlueStackdir, "HD-Player.exe"), "--instance", instance])
         elif self.客户端 == "win_LD":
-            instance = Settings.win_Instance[self.mynode]
+            instance = str(Settings.win_Instance[self.mynode])
             command.append([os.path.join(Settings.LDPlayerdir, "ldconsole.exe"), "launch", "--index", instance])
         elif self.客户端 == "win_MuMu":
-            instance = Settings.win_Instance[self.mynode]
+            instance = str(Settings.win_Instance[self.mynode])
             command.append([os.path.join(Settings.MuMudir, "MuMuManager.exe"), "control", "-v", instance, "launch"])
         elif self.客户端 == "FULL_ADB":
             # 通过reboot的方式可以实现重启和解决资源的效果
