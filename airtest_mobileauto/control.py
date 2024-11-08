@@ -21,6 +21,8 @@ import subprocess
 import shlex
 import multiprocessing
 import yaml
+# 临时目录,用于存放临时文件
+import tempfile
 # 重写函数#
 from airtest.core.api import connect_device, sleep
 from airtest.core.api import exists as exists_o
@@ -97,6 +99,7 @@ class readyaml():
         #
         return fallback
 
+
 def save_yaml(vsr_dict={}, yamlfile=""):
     try:
         # 写入 YAML 文件
@@ -108,6 +111,7 @@ def save_yaml(vsr_dict={}, yamlfile=""):
         traceback.format_exc()
         TimeErr(f"{funs_name()}写入yaml文件{yamlfile}失败")
         return False
+
 
 class Settings(object):
     #
@@ -125,7 +129,7 @@ class Settings(object):
     platform = "macos" if "darwin" in platform else platform
     #
     # control, 运行控制
-    prefix = ""
+    prefix = "airtest_mobileauto"
     figdir = "assets"
     # 时间参数
     # 防止服务器时区不同, 影响对游戏的执行时间判断
@@ -156,7 +160,8 @@ class Settings(object):
     MuMudir = ""  # "D:\Program Files\Netease\MuMu Player 12\shell"
     # ADB地址
     LINK_dict = {0: "Android:///127.0.0.1:5555"}
-    #
+    # 开始采用临时文件夹保存并行临时文件
+    tmpdir = os.path.join(tempfile.gettempdir(), prefix)
 
     @classmethod
     def Config(cls, config_file="config.yaml"):
@@ -174,6 +179,8 @@ class Settings(object):
 
         # control
         cls.prefix = config.getstr('prefix', cls.prefix)
+        cls.tmpdir = config.getstr('tmpdir', os.path.join(tempfile.gettempdir(), cls.prefix))
+        os.makedirs(cls.tmpdir, exist_ok=True)
         cls.figdir = config.get('figdir', cls.figdir)
         #
         cls.mobiletime = config.getint('mobiletime', cls.mobiletime)
@@ -288,6 +295,7 @@ class Settings(object):
         TimeDebug(prefix+":mynode="+str(cls.mynode))
         TimeDebug(prefix+":totalnode="+str(cls.totalnode))
         TimeDebug(prefix+":LINK_dict="+str(cls.LINK_dict))
+        TimeDebug(prefix+":tmpdir="+str(cls.tmpdir))
 
 
 # 替代基础的print函数
@@ -745,8 +753,9 @@ class DQWheel:
         self.savepos = True
         # 子程序运行次数
         self.calltimes_dict = {}
-        #
-        self.stopfile = ".tmp.barrier.EXIT.txt"
+        # 所有的临时文件, 即.tmp.开头的文件, 都存储到Settings.tmpdir目录
+        os.makedirs(Settings.tmpdir, exist_ok=True)
+        self.stopfile = os.path.join(Settings.tmpdir, ".tmp.barrier.EXIT.txt")
         self.stopinfo = ""
         self.connecttimes = 0
         self.connecttimesMAX = 20
@@ -762,9 +771,9 @@ class DQWheel:
         return files
     #
 
-    def init_clean(self, text=".tmp.barrier."):
+    def init_clean(self):
         # 多节点时，要同步成功后，采用主节点进行删除,不然时间差会导致很多问题
-        self.removefiles(head=".tmp.barrier.", foot=".txt")
+        self.removefiles(dir=Settings.tmpdir, head=".tmp.barrier.", foot=".txt")
     #
 
     def timelimit(self, timekey="", limit=0, init=True, reset=True):
@@ -937,6 +946,7 @@ class DQWheel:
         #
         for i in np.arange(1, totalnode):
             filename = f".tmp.barrier.{i}.{name}.txt"
+            filename = os.path.join(Settings.tmpdir, filename)
             if ionode:
                 if os.path.exists(filename):
                     TimeErr("完蛋,barriernode之前就存在同步文件")
@@ -997,7 +1007,7 @@ class DQWheel:
         # 保存变量
         # save_dict 不仅适合保存字典,而且适合任意的变量类型
         if ".yaml" == var_dict_file[-5:]:
-            if save_yaml(var_dict,var_dict_file):
+            if save_yaml(var_dict, var_dict_file):
                 return
         #
         # 旧版本的pickle格式, 适合存储任意数据
@@ -1011,6 +1021,7 @@ class DQWheel:
         if totalnode < 2:
             return var
         dict_file = ".tmp."+name+".txt"
+        dict_file = os.path.join(Settings.tmpdir, dict_file)
         if mynode == 0:
             self.save_dict(var, dict_file)
         self.barriernode(mynode, totalnode, "bcastvar."+name)
@@ -1021,7 +1032,7 @@ class DQWheel:
         #
         self.barriernode(mynode, totalnode, "bcastvar."+name)
         if mynode == 0:
-            self.removefile(dict_file)        
+            self.removefile(dict_file)
         #
         return var_new
 
@@ -1218,11 +1229,15 @@ class DQWheel:
             #
             主辅通信成功 = False
             filename = f".tmp.barrier.{i}.{name}.in.txt"
+            filename = os.path.join(Settings.tmpdir, filename)
+            # 将随机校验数字，存储到 filename 中
+            # 利用lockfile="xxx.随机校验数字.xxx"进行校验
             if ionode:
                 hour, minu, sec = self.time_getHMS()
                 myrandom = f"{i}{totalnode}{hour}{minu}{sec}"
                 self.touchfile(filename, content=myrandom)
                 lockfile = f".tmp.barrier.{myrandom}.{i}.{name}.in.txt"
+                lockfile = os.path.join(Settings.tmpdir, lockfile)
                 self.touchfile(lockfile)
                 sleep(5)
                 self.filelist.append(filename)
@@ -1249,6 +1264,7 @@ class DQWheel:
                 # 辅助节点,找到特定,就循环5分钟
                 myrandom = ""
                 lockfile = f".tmp.barrier.{myrandom}.{i}.{name}.in.txt"
+                lockfile = os.path.join(Settings.tmpdir, lockfile)
                 TimeECHO(f"进行同步判定{i}")
                 sleeploop = 0
                 for sleeploop in np.arange(60*5*(totalnode-1)):
@@ -1257,6 +1273,7 @@ class DQWheel:
                         myrandom = self.readfile(filename)[0].strip()
                     if len(myrandom) > 0 and not 主辅通信成功:
                         lockfile = f".tmp.barrier.{myrandom}.{i}.{name}.in.txt"
+                        lockfile = os.path.join(Settings.tmpdir, lockfile)
                         TimeECHO(f"同步文件更新 lockfile={lockfile}")
                         sleep(10)
                         主辅通信成功 = self.removefile(lockfile)
@@ -1281,6 +1298,7 @@ class DQWheel:
             self.touch同步文件(全部通信失败文件)
         同步成功 = 同步成功 and not os.path.exists(全部通信失败文件)
         file_sleeptime = ".tmp.barrier.sleeptime.txt"
+        file_sleeptime = os.path.join(Settings.tmpdir, file_sleeptime)
         if 同步成功:
             TimeECHO("同步等待成功")
             if ionode:
