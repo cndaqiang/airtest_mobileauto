@@ -97,6 +97,17 @@ class readyaml():
         #
         return fallback
 
+def save_yaml(vsr_dict={}, yamlfile=""):
+    try:
+        # 写入 YAML 文件
+        with open(yamlfile, 'w', encoding='utf-8') as f:
+            yaml.dump(vsr_dict, f, allow_unicode=True)
+        TimeECHO(f"保存{yamlfile}")
+        return True
+    except:
+        traceback.format_exc()
+        TimeErr(f"{funs_name()}写入yaml文件{yamlfile}失败")
+        return False
 
 class Settings(object):
     #
@@ -964,39 +975,32 @@ class DQWheel:
         return False
 
     def read_dict(self, var_dict_file="position_dict.yaml"):
+        var_dict = {}
+        TimeECHO("读取"+var_dict_file)
+        if not os.path.exists(var_dict_file):
+            TimeECHO("空文件"+var_dict_file)
+            return var_dict
         # 读取变量
         # read_dict 不仅适合保存字典,而且适合任意的变量类型
         if ".yaml" == var_dict_file[-5:]:
-            try:
-                # 读取 YAML 文件
-                with open(var_dict_file,  'r', encoding='utf-8') as f:
-                    var_dict = yaml.load(f, Loader=yaml.FullLoader)
-                TimeECHO(f"读取{var_dict_file}")
-                return var_dict
-            except:
-                traceback.print_exc()
-                TimeErr(f"{funs_name()}读取yaml文件{var_dict_file}失败")
+            # 读取 YAML 文件
+            config = readyaml(var_dict_file)
+            return config.yaml_dict
+        #
+        # 旧版本的pickle格式, 适合存储任意数据
         import pickle
-        var_dict = {}
-        if os.path.exists(var_dict_file):
-            TimeECHO("读取"+var_dict_file)
-            with open(var_dict_file, 'rb') as f:
-                var_dict = pickle.load(f)
+        with open(var_dict_file, 'rb') as f:
+            var_dict = pickle.load(f)
         return var_dict
 
     def save_dict(self, var_dict, var_dict_file="position_dict.yaml"):
         # 保存变量
         # save_dict 不仅适合保存字典,而且适合任意的变量类型
         if ".yaml" == var_dict_file[-5:]:
-            try:
-                # 写入 YAML 文件
-                with open(var_dict_file, 'w', encoding='utf-8') as f:
-                    yaml.dump(var_dict, f, allow_unicode=True)
-                TimeECHO(f"保存{var_dict_file}")
+            if save_yaml(var_dict,var_dict_file):
                 return
-            except:
-                traceback.format_exc()
-                TimeErr(f"{funs_name()}写入yaml文件{var_dict_file}失败")
+        #
+        # 旧版本的pickle格式, 适合存储任意数据
         import pickle
         f = open(var_dict_file, "wb")
         pickle.dump(var_dict, f)
@@ -1014,6 +1018,10 @@ class DQWheel:
             return var
         #
         var_new = self.read_dict(dict_file)
+        #
+        self.barriernode(mynode, totalnode, "bcastvar."+name)
+        if mynode == 0:
+            self.removefile(dict_file)        
         #
         return var_new
 
@@ -1065,10 +1073,15 @@ class DQWheel:
         #
         if savepos:
             if keystr in self.var_dict.keys():
-                touch(self.var_dict[keystr])
-                TimeECHO("touch (saved) "+keystr)
-                sleep(0.1)
-                return True
+                # 判断数据类型是否正确
+                if not isinstance(self.var_dict[keystr], (tuple, list)):
+                    TimeECHO("该位置记录错误,正在删除字典: "+keystr)
+                    del self.var_dict[keystr]
+                else:
+                    touch(self.var_dict[keystr])
+                    TimeECHO("touch (saved) "+keystr)
+                    sleep(0.1)
+                    return True
         pos = exists(png)
         if pos:
             self.connecttimes = 0
