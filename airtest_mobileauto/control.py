@@ -179,7 +179,7 @@ class Settings(object):
 
         # control
         cls.prefix = config.getstr('prefix', cls.prefix)
-        cls.tmpdir = config.getstr('tmpdir', os.path.join(tempfile.gettempdir(), cls.prefix))
+        cls.tmpdir = config.getstr('tmpdir', os.path.join(tempfile.gettempdir(), "airtest_mobileauto", cls.prefix))
         os.makedirs(cls.tmpdir, exist_ok=True)
         cls.figdir = config.get('figdir', cls.figdir)
         #
@@ -1967,6 +1967,7 @@ class TaskManager:
             TimeDebug("Exception traceback: %s", traceback.format_exc())
         #
         TimeDebug("single_execute finished with mynode=%s", mynode)
+        TimeECHO(f"脚本已退出, 请定期清除缓存目录.{Settings.tmpdir}")
 
     def multi_execute(self):
         TimeDebug("Multiprocessing with %s total nodes.", Settings.totalnode)
