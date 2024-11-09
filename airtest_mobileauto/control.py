@@ -129,7 +129,7 @@ class Settings(object):
     platform = "macos" if "darwin" in platform else platform
     #
     # control, 运行控制
-    prefix = "airtest_mobileauto"
+    prefix = ""
     figdir = "assets"
     # 时间参数
     # 防止服务器时区不同, 影响对游戏的执行时间判断
@@ -292,10 +292,10 @@ class Settings(object):
 
     @classmethod
     def info(cls, prefix=""):
-        TimeDebug(prefix+":mynode="+str(cls.mynode))
-        TimeDebug(prefix+":totalnode="+str(cls.totalnode))
-        TimeDebug(prefix+":LINK_dict="+str(cls.LINK_dict))
-        TimeDebug(prefix+":tmpdir="+str(cls.tmpdir))
+        TimeDebug("mynode="+str(cls.mynode))
+        TimeDebug("totalnode="+str(cls.totalnode))
+        TimeDebug("LINK_dict="+str(cls.LINK_dict))
+        TimeDebug("tmpdir="+str(cls.tmpdir))
 
 
 # 替代基础的print函数
@@ -305,7 +305,7 @@ def loggerhead():
     current_datetime = datetime.now(Settings.eastern_eight_tz)
     # 格式化为字符串（月、日、小时、分钟、秒）
     formatted_string = current_datetime.strftime("[%m-%d %H:%M:%S]")
-    return formatted_string+f"({Settings.mynode})"
+    return formatted_string+f"{Settings.prefix}{Settings.mynode}>"
 
 
 def TimeECHO(info, *args, **kwargs):
@@ -741,7 +741,6 @@ def Template(*args, **kwargs):
 class DQWheel:
     def __init__(self, var_dict_file='var_dict_file.yaml', mynode=-10, totalnode=-10):
         self.timedict = {}
-        self.辅助同步文件 = "NeedRebarrier.txt"
         self.mynode = mynode
         self.totalnode = totalnode
         self.totalnode_bak = totalnode
@@ -759,7 +758,9 @@ class DQWheel:
         self.stopinfo = ""
         self.connecttimes = 0
         self.connecttimesMAX = 20
-        self.独立同步文件 = f"{self.mynode}.{self.totalnode}.NeedRebarrier.txt"
+        # 同步文件放在运行目录, 也方便调试
+        self.辅助同步文件 = f"NeedRebarrier.txt" 
+        self.独立同步文件 = f"NeedRebarrier.{self.mynode}.{self.totalnode}.txt"
         self.removefile(self.独立同步文件)
         self.removefile(self.stopfile)
 
@@ -1213,8 +1214,8 @@ class DQWheel:
         TimeECHO("进入同步等待")
         同步成功 = True
         name = 同步文件
-        全部通信成功文件 = 同步文件+".同步完成.txt"
-        全部通信失败文件 = 同步文件+".同步失败.txt"
+        全部通信成功文件 = os.path.join(Settings.tmpdir,os.path.basename(同步文件)+".同步完成.txt")
+        全部通信失败文件 = os.path.join(Settings.tmpdir,os.path.basename(同步文件)+".同步失败.txt")
         self.filelist.append(全部通信成功文件)
         # 前两个节点首先进行判定,因此先进行删除
         if mynode < 2:
