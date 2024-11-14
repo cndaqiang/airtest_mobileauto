@@ -1964,8 +1964,8 @@ class TaskManager:
             method = getattr(task_instance, self.method_name)
             method()
         except:
+            traceback.print_exc()
             TimeErr("Error in single_execute with mynode=%s", mynode)
-            TimeDebug("Exception traceback: %s", traceback.format_exc())
         #
         TimeDebug("single_execute finished with mynode=%s", mynode)
         TimeECHO(f"脚本已退出, 请定期清除缓存目录.{Settings.tmpdir}")
