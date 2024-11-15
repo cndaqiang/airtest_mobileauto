@@ -759,7 +759,7 @@ class DQWheel:
         self.connecttimes = 0
         self.connecttimesMAX = 20
         # 同步文件放在运行目录, 也方便调试
-        self.辅助同步文件 = f"NeedRebarrier.txt" 
+        self.辅助同步文件 = f"NeedRebarrier.txt"
         self.独立同步文件 = f"NeedRebarrier.{self.mynode}.{self.totalnode}.txt"
         self.removefile(self.独立同步文件)
         self.removefile(self.stopfile)
@@ -798,8 +798,7 @@ class DQWheel:
             else:
                 return False
 
-    def removefile(self, filename):
-        TimeECHO(f"remove[{filename}]")
+    def removefile(self, filename, quiet=True):
         if os.path.exists(filename):
             try:
                 os.remove(filename)
@@ -809,15 +808,16 @@ class DQWheel:
                 TimeECHO("删除["+filename+"]失败")
                 return False
             if os.path.exists(filename):
-                TimeErr("["+filename+"]还存在")
+                TimeErr("删除["+filename+"]失败, 还存在")
                 return False
             else:
                 return True
         else:
-            TimeECHO("不存在["+filename+"]")
+            if not quiet:
+                TimeECHO("不存在["+filename+"]")
             return False
 
-    def removefiles(self, dir=".", head="", body="", foot=""):
+    def removefiles(self, dir=".", head="", body="", foot="", quiet=True):
         l_head = len(head)
         l_body = len(body)
         l_foot = len(foot)
@@ -839,7 +839,7 @@ class DQWheel:
                     continue
             #
             if isname:
-                self.removefile(os.path.join(dir, name))
+                self.removefile(os.path.join(dir, name), quiet)
         return True
 
     def touchfile(self, filename, content=""):
@@ -971,12 +971,12 @@ class DQWheel:
                     TimeECHO("."*10)
                     TimeECHO(f"BARRIERNODE 同步完成[{name}]")
                     return True
-                if times % 3 == 0:
+                if times % 15 == 0:
                     TimeECHO(f"BARRIERNODE ...同步检测[{name}]")
             else:
                 if self.removefile(filelist[mynode-1]):
                     return True
-            sleep(10)
+            sleep(2)
         if ionode:
             for i in filelist:
                 self.removefile(i)
@@ -1113,7 +1113,7 @@ class DQWheel:
     def cal_record_pos(self, record_pos=(0.5, 0.5), resolution=(960, 540), keystr="", savepos=False):
         x = 0.5*resolution[0]+record_pos[0]*resolution[0]
         y = 0.5*resolution[1]+record_pos[1]*resolution[0]
-        pos = (x, y)
+        pos = (int(x), int(y))
         if savepos and len(keystr) > 0:
             self.var_dict[keystr] = pos
             self.save_dict(self.var_dict, self.var_dict_file)
@@ -1214,8 +1214,8 @@ class DQWheel:
         TimeECHO("进入同步等待")
         同步成功 = True
         name = 同步文件
-        全部通信成功文件 = os.path.join(Settings.tmpdir,os.path.basename(同步文件)+".同步完成.txt")
-        全部通信失败文件 = os.path.join(Settings.tmpdir,os.path.basename(同步文件)+".同步失败.txt")
+        全部通信成功文件 = os.path.join(Settings.tmpdir, os.path.basename(同步文件)+".同步完成.txt")
+        全部通信失败文件 = os.path.join(Settings.tmpdir, os.path.basename(同步文件)+".同步失败.txt")
         self.filelist.append(全部通信成功文件)
         # 前两个节点首先进行判定,因此先进行删除
         if mynode < 2:
@@ -1226,7 +1226,7 @@ class DQWheel:
             if mynode > 0 and mynode != i:
                 continue
             TimeECHO(f"进行同步循环{i}")
-            sleep(mynode*5)
+            sleep(mynode*1)
             #
             主辅通信成功 = False
             filename = f".tmp.barrier.{i}.{name}.in.txt"
@@ -1240,7 +1240,7 @@ class DQWheel:
                 lockfile = f".tmp.barrier.{myrandom}.{i}.{name}.in.txt"
                 lockfile = os.path.join(Settings.tmpdir, lockfile)
                 self.touchfile(lockfile)
-                sleep(5)
+                sleep(1)
                 self.filelist.append(filename)
                 self.filelist.append(lockfile)
                 # 开始通信循环
