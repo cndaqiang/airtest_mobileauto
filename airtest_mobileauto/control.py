@@ -968,8 +968,8 @@ class DQWheel:
                     if not barrieryes:
                         break
                 if barrieryes:
-                    TimeECHO("."*10)
                     TimeECHO(f"BARRIERNODE 同步完成[{name}]")
+                    TimeECHO("."*10)
                     return True
                 if times % 15 == 0:
                     TimeECHO(f"BARRIERNODE ...同步检测[{name}]")
@@ -1016,26 +1016,58 @@ class DQWheel:
         f = open(var_dict_file, "wb")
         pickle.dump(var_dict, f)
         f.close()
-    # bcastvar 不仅适合保存字典,而且适合任意的变量类型
 
     def bcastvar(self, mynode, totalnode, var, name="bcastvar"):
+        # bcastvar 不仅适合保存字典,而且适合任意的变量类型
         if totalnode < 2:
             return var
         dict_file = ".tmp."+name+".txt"
         dict_file = os.path.join(Settings.tmpdir, dict_file)
         if mynode == 0:
             self.save_dict(var, dict_file)
-        self.barriernode(mynode, totalnode, "bcastvar."+name)
+        self.barriernode(mynode, totalnode, "bcastvar.S."+name)
         if self.存在同步文件():
             return var
         #
         var_new = self.read_dict(dict_file)
         #
-        self.barriernode(mynode, totalnode, "bcastvar."+name)
+        self.barriernode(mynode, totalnode, "bcastvar.E."+name)
         if mynode == 0:
             self.removefile(dict_file)
         #
         return var_new
+
+    def gathervar(self, mynode, totalnode, var, name="gathervar"):
+        # gathervar 不仅适合保存字典,而且适合任意的变量类型
+        if totalnode < 2:
+            return [var]
+        mydict_file = f".tmp.{name}.{mynode}.{totalnode}.txt"
+        self.save_dict(var, mydict_file)
+        self.barriernode(mynode, totalnode, "gathervar.S."+name)
+        if self.存在同步文件():
+            self.removefile(mydict_file)
+            return [var]
+        #
+        vars = []
+        for i in range(totalnode):
+            dict_file = f".tmp.{name}.{i}.{totalnode}.txt"
+            if not os.path.exists(dict_file):
+                sleep(5)
+                if not os.path.exists(dict_file):
+                    self.touch同步文件(同步文件=self.辅助同步文件, content=f"gathervar.{name}.找不到{dict_file}")
+                    self.removefile(mydict_file)
+                    return
+            var_new = self.read_dict(dict_file)
+            vars.append(var_new)
+        #
+        self.barriernode(mynode, totalnode, "gathervar.E."+name)
+        self.removefile(mydict_file)
+        if self.存在同步文件():
+            self.removefile(mydict_file)
+            return [var]
+        #
+        TimeECHO("gather["+name+"]成功")
+        return vars
 
     def uniq_Template_array(self, arr):
         if not arr:  # 如果输入的列表为空
