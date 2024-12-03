@@ -149,7 +149,7 @@ class Settings(object):
     logger.setLevel(logging.DEBUG)
     outputnode = -1
     logfile = ""
-    logfile_dict = {}
+    logfile_dict = {0: "result.0.txt"}
     #
 
     # client, 客户端情况
@@ -166,11 +166,17 @@ class Settings(object):
     LINK_dict = {0: "Android:///127.0.0.1:5555"}
     # 开始采用临时文件夹保存并行临时文件
     tmpdir = os.path.join(tempfile.gettempdir(), prefix)
+    #
+    # 注意Config新增的控制参数, 必须在init中进行定义
+    win_Instance = {}  # 模拟器启动的编号
+    win_InstanceName = {}  # 模拟器运行后的窗口名
+    BossKey = {0: []}  # 老板键,快速隐藏APP
 
     @classmethod
     def Config(cls, config_file="config.yaml"):
         if not os.path.exists(config_file):
             return
+        # 不指定config的时候, 下面的就没法读入了
         if ".yaml" == config_file[-5:]:
             config = readyaml(config_file)
         else:
@@ -403,7 +409,7 @@ def getPopen(command):
             stdout = f"执行{command}超时"
             stderr = ""
         #
-        result = [len(stderr) > 0, stdout+stderr]
+        result = [len(stderr) > 0, str(stdout)+str(stderr)]
     except:
         result = [1, traceback.format_exc()]
     return result
@@ -543,6 +549,8 @@ def getpid_win(IMAGENAME="HD-Player.exe", key="BlueStacks App Player 0"):
 
 
 def touchkey_win(Key=[]):
+    if len(Key) == 0:
+        return
     if Settings.platform != "win32":
         TimeECHO(f"平台{Settings.platform} not support {fun_name(1)}")
         return False
@@ -1613,7 +1621,10 @@ class deviceOB:
         #
         # 开始运行
         # BossKey
-        BossKey = Settings.BossKey[self.mynode]
+        if self.mynode in Settings.BossKey.keys():
+            BossKey = Settings.BossKey[self.mynode]
+        else:
+            BossKey = []
         #
         if len(BossKey) > 0:
             # 交叉启动模拟器, 避免快捷键冲突
@@ -1656,7 +1667,10 @@ class deviceOB:
             PID = getpid_win(IMAGENAME="HD-Player.exe", key=Settings.win_InstanceName[self.mynode])
             if PID <= 0:
                 TimeECHO("如果BlueStacks在后台时，需要先调到前台才能获得准确的PID")
-                BossKey = Settings.BossKey[self.mynode]
+                if self.mynode in Settings.BossKey.keys():
+                    BossKey = Settings.BossKey[self.mynode]
+                else:
+                    BossKey = []
                 if len(BossKey) > 0:
                     # 交叉关闭模拟器, 避免快捷键冲突
                     hour, minu, sec = DQWheel.time_getHMS()
