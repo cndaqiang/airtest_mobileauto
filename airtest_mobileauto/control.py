@@ -1484,7 +1484,7 @@ class deviceOB:
             self.客户端 = "ios"
         # 自定义安卓设备/模拟器
         elif self.mynode in Settings.cmd_start_device.keys() or self.mynode in Settings.cmd_stop_device.keys():
-            self.客户端 = "UserDefinedDevice"
+            self.客户端 = "UserDefinedAndroid"
         elif "win" in self.控制端:
             if os.path.exists(Settings.BlueStackdir) and self.mynode in Settings.win_Instance.keys():
                 self.客户端 = "win_BlueStacks"
@@ -1600,9 +1600,9 @@ class deviceOB:
                 TimeErr(" tidevice list 无法找到IOS设备重启失败")
                 return False
         # android
-        elif self.客户端 == "UserDefinedDevice":
+        elif self.客户端 == "UserDefinedAndroid":
             if self.mynode in Settings.cmd_start_device.keys():
-                command.append([Settings.cmd_start_device[self.mynode].split()])
+                command.append(shlex.split(Settings.cmd_start_device[self.mynode]))
             else:
                 command.append([self.adb_path, "connect", self.LINKURL])
         elif self.客户端 == "win_BlueStacks":
@@ -1683,9 +1683,9 @@ class deviceOB:
                 TimeECHO(f"当前模式无法关闭IOS")
                 return False
         # android
-        elif self.客户端 == "UserDefinedDevice":
+        elif self.客户端 == "UserDefinedAndroid":
             if self.mynode in Settings.cmd_stop_device.keys():
-                command.append([Settings.cmd_stop_device[self.mynode].split()])
+                command.append(shlex.split(Settings.cmd_stop_device[self.mynode]))
             else:
                 command.append([self.adb_path, "disconnect", self.LINKURL])
         elif self.客户端 == "win_BlueStacks":

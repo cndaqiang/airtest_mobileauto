@@ -38,7 +38,9 @@ Below are some examples of development scripts that demonstrate the capabilities
 
 - An automation script for [Honor of Kings](https://github.com/cndaqiang/WZRY) .
 - Automate daily sign-ins and claim gift packages on Android with [autotask_android](https://github.com/cndaqiang/autotask_android).
+- Config
 
+For the configuration file format, see [this guide](https://wzry-doc.pages.dev/guide/config/).
 
 ## Acknowledgements
 
