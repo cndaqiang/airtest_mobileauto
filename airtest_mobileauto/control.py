@@ -134,7 +134,8 @@ class Settings(object):
     #
     # control, 运行控制
     prefix = ""
-    figdir = "assets"
+    figdir = "assets"  # 输入的静态(图片)资源目录
+    figdirs = [figdir]  # 默认的静态(图片)资源目录, 输入的优先级 figdir > "./" >  figdirs.append()
     # 时间参数
     # 防止服务器时区不同, 影响对游戏的执行时间判断
     # 设置为8则为东八区
@@ -148,7 +149,7 @@ class Settings(object):
     logger = logging.getLogger("airtest_mobileauto")
     logger.setLevel(logging.DEBUG)
     outputnode = -1
-    logfile = ""
+    logfile = "result.0.txt"
     logfile_dict = {0: "result.0.txt"}
     #
 
@@ -170,7 +171,10 @@ class Settings(object):
     # 注意Config新增的控制参数, 必须在init中进行定义
     win_Instance = {}  # 模拟器启动的编号
     win_InstanceName = {}  # 模拟器运行后的窗口名
+    BossKeydict = {18: "alt", 17: "ctrl", 16: "shift", 88: "x", 81: "q"}
     BossKey = {0: []}  # 老板键,快速隐藏APP
+    cmd_start_device = {}  # 自定义开启设备命令
+    cmd_stop_device = {}  # 自定义关闭设备命令
 
     @classmethod
     def Config(cls, config_file="config.yaml"):
@@ -192,6 +196,7 @@ class Settings(object):
         cls.tmpdir = config.getstr('tmpdir', os.path.join(tempfile.gettempdir(), "airtest_mobileauto", cls.prefix))
         os.makedirs(cls.tmpdir, exist_ok=True)
         cls.figdir = config.get('figdir', cls.figdir)
+        cls.figdirs = [cls.figdir]
         #
         cls.mobiletime = config.getint('mobiletime', cls.mobiletime)
         eastern_eight_offset = timedelta(hours=cls.mobiletime)
@@ -275,6 +280,9 @@ class Settings(object):
             # 是否替换默认的BossKey
             BossKey = config.get('BossKey', cls.BossKey)
             cls.BossKey.update(BossKey)
+        #
+        cls.cmd_start_device = config.get('start_device', cls.cmd_start_device)
+        cls.cmd_stop_device = config.get('stop_device', cls.cmd_stop_device)
         #
         # 读取LINK_dict，假设配置文件中存储的是字符串形式的字典
         # 本地docker容器
@@ -737,7 +745,7 @@ def Template(*args, **kwargs):
     if "dirname" in kwargs:
         dirname.append(kwargs["dirname"])
         del kwargs["dirname"]
-    dirname.append(Settings.figdir)
+    dirname.extend(Settings.figdirs)
     dirname.append("./")
     args_list = list(args)
     if args_list and "png" in args_list[0]:
@@ -1079,7 +1087,7 @@ class DQWheel:
                 if not os.path.exists(dict_file):
                     self.touch同步文件(同步文件=self.辅助同步文件, content=f"gathervar.{name}.找不到{dict_file}")
                     self.removefile(mydict_file)
-                    return
+                    return [var]
             var_new = self.read_dict(dict_file)
             if not self.are_same_type(var_new, var):
                 self.touch同步文件(content=f"{fun_name(1)}.{name}.{i}.读取的变量类型不同于输入变量")
@@ -1462,7 +1470,7 @@ class deviceOB:
         # (USB连接时"Android:///id",没有端口
         self.LINKport = "" if "/" in self.LINKport else self.LINKport
         self.LINKtype = self.LINK.split(":")[0].lower()  # android, ios
-        self.LINKhead = self.LINK[:-len(self.LINKport)-1] if len(self.LINKport) > 0 else self.LINK  # ios:///ip
+        self.LINKhead = self.LINK[:-len(self.LINKport)-1] if len(self.LINKport) > 0 else self.LINK  # ios:///http:ip
         self.LINKURL = self.LINK.split("/")[-1]  # ip:port
         self.设备类型 = 设备类型.lower() if 设备类型 else self.LINKtype
         #
@@ -1474,6 +1482,9 @@ class deviceOB:
         # 不同客户端对重启的适配能力不同
         if "ios" in self.设备类型:
             self.客户端 = "ios"
+        # 自定义安卓设备/模拟器
+        elif self.mynode in Settings.cmd_start_device.keys() or self.mynode in Settings.cmd_stop_device.keys():
+            self.客户端 = "UserDefinedDevice"
         elif "win" in self.控制端:
             if os.path.exists(Settings.BlueStackdir) and self.mynode in Settings.win_Instance.keys():
                 self.客户端 = "win_BlueStacks"
@@ -1491,6 +1502,8 @@ class deviceOB:
             self.客户端 = "RemoteAndroid"
         else:
             self.客户端 = "USBAndroid"
+        #
+
         #
         self.实体终端 = False
         self.实体终端 = "mac" in self.控制端 or "ios" in self.设备类型
@@ -1587,6 +1600,11 @@ class deviceOB:
                 TimeErr(" tidevice list 无法找到IOS设备重启失败")
                 return False
         # android
+        elif self.客户端 == "UserDefinedDevice":
+            if self.mynode in Settings.cmd_start_device.keys():
+                command.append([Settings.cmd_start_device[self.mynode].split()])
+            else:
+                command.append([self.adb_path, "connect", self.LINKURL])
         elif self.客户端 == "win_BlueStacks":
             instance = str(Settings.win_Instance[self.mynode])
             command.append([os.path.join(Settings.BlueStackdir, "HD-Player.exe"), "--instance", instance])
@@ -1603,9 +1621,12 @@ class deviceOB:
         elif self.客户端 == "lin_docker":
             containID = f"{Settings.dockercontain[self.mynode]}"
             command.append(["docker", "restart", containID])
-        elif self.客户端 == "RemoteAndroid":
-            # 热重启系统
+        elif True:
             command.append([self.adb_path, "connect", self.LINKURL])
+        # 下面的命令这两个命令是需要root权限的, 或者不对所有设备适配的
+        # 可能无法执行, 因此默认关闭了, 未来可以考虑启动这些命令
+        elif self.客户端 == "RemoteAndroid":
+            # 热重启系统，需要root权限
             command.append([self.adb_path, "-s", self.LINKURL, "shell", "stop"])
             command.append([self.adb_path, "-s", self.LINKURL, "shell", "start"])
         elif self.客户端 == "USBAndroid":
@@ -1662,6 +1683,11 @@ class deviceOB:
                 TimeECHO(f"当前模式无法关闭IOS")
                 return False
         # android
+        elif self.客户端 == "UserDefinedDevice":
+            if self.mynode in Settings.cmd_stop_device.keys():
+                command.append([Settings.cmd_stop_device[self.mynode].split()])
+            else:
+                command.append([self.adb_path, "disconnect", self.LINKURL])
         elif self.客户端 == "win_BlueStacks":
             # 尝试获取PID
             PID = getpid_win(IMAGENAME="HD-Player.exe", key=Settings.win_InstanceName[self.mynode])
@@ -1698,13 +1724,18 @@ class deviceOB:
         elif self.客户端 == "win_MuMu":
             instance = Settings.win_Instance[self.mynode]
             command.append([os.path.join(Settings.MuMudir, "MuMuManager.exe"), "control", "-v", instance, "shutdown"])
-        elif self.客户端 == "FULL_ADB":
-            # 通过reboot的方式可以实现重启和解决资源的效果
-            command.append([self.adb_path, "connect", self.LINKURL])
-            command.append([self.adb_path, "-s", self.LINKURL, "reboot"])
         elif self.客户端 == "lin_docker":
             containID = f"{Settings.dockercontain[self.mynode]}"
             command.append(["docker", "stop", containID])
+        elif True:
+            command.append([self.adb_path, "disconnect", self.LINKURL])
+        # 下面的命令这两个命令是需要root权限的, 或者不对所有设备适配的
+        # 可能无法执行, 因此默认关闭了, 未来可以考虑启动这些命令
+        elif self.客户端 == "RemoteAndroid":
+            # 热重启系统，需要root权限
+            command.append([self.adb_path, "-s", self.LINKURL, "shell", "stop"])
+            command.append([self.adb_path, "-s", self.LINKURL, "shell", "start"])
+            command.append([self.adb_path, "disconnect", self.LINKURL])
         elif self.客户端 == "USBAndroid":
             result = getPopen([self.adb_path, "devices"])
             if self.LINKURL in result[1]:
@@ -1712,11 +1743,10 @@ class deviceOB:
             else:
                 TimeECHO(f"没有找到USB设备{self.LINKURL}\n"+result[1])
                 command = []
-        # 保底的热重启系统
-        if self.客户端 == "RemoteAndroid" or len(command) == 0:
-            command.append([self.adb_path, "-s", self.LINKURL, "shell", "stop"])
-            command.append([self.adb_path, "-s", self.LINKURL, "shell", "start"])
-            command.append([self.adb_path, "disconnect", self.LINKURL])
+        elif self.客户端 == "FULL_ADB":
+            # 通过reboot的方式可以实现重启和解决资源的效果
+            command.append([self.adb_path, "connect", self.LINKURL])
+            command.append([self.adb_path, "-s", self.LINKURL, "reboot"])
         #
         # 开始运行
         exit_code = run_command(command=command, sleeptime=60)
