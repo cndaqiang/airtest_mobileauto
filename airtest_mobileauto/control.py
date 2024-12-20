@@ -810,13 +810,15 @@ class DQWheel:
             self.timedict[timekey+".reset"] = time.time()
             return False
         else:
+            # reset 是大时间范围内的子时间循环循环,例如在整个对战期间,每隔5分钟点一下屏幕
             if not reset:
                 if time.time()-self.timedict[timekey+".reset"] > limit:
                     self.timedict[timekey+".reset"] = time.time()
                     return True
-            if time.time()-self.timedict[timekey] > limit:
+                else:
+                    return False
+            elif time.time()-self.timedict[timekey] > limit:
                 self.timedict[timekey] = time.time()
-                self.timedict[timekey+".reset"] = time.time()
                 return True
             else:
                 return False

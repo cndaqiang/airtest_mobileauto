@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='airtest_mobileauto',
-    version='2.1.1',
+    version='2.1.3',
     author='cndaqiang',
     author_email='who@cndaqiang.ac.cn',
     description='A robust, object-oriented, multi-process mobile app control framework based on AirTest, designed for stable and compatible debugging and automation of devices and apps. Ideal for tasks such as game automation in titles like Honor of Kings, with enhanced stability features including connection checks, automatic retries on failure, and automatic restarts for continuous operation.',
