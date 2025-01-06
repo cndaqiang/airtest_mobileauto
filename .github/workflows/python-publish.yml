@@ -9,8 +9,13 @@
 name: Upload Python Package
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:   # 设置为手动触发
+    inputs:            # 可选，定义手动触发时输入的参数
+      version:
+        description: 'Version of the package'
+        required: true
+        default: '1.0.0'
+  
 
 permissions:
   contents: read
