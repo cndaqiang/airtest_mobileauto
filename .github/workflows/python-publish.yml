@@ -14,7 +14,7 @@ on:
       version:
         description: 'Version of the package'
         required: true
-        default: '1.0.0'
+        default: '2.1.7'
   
 
 permissions:
@@ -27,6 +27,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Set version in setup.py
+      run: |
+        VERSION="${{ github.event.inputs.version }}"
+        sed -i "s/version='[^']*'/version='$VERSION'/" setup.py
     - name: Set up Python
       uses: actions/setup-python@v3
       with:
