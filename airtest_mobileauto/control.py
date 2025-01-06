@@ -1336,6 +1336,9 @@ class DQWheel:
                 TimeECHO(f"进行同步判定{i}")
                 sleeploop = 0
                 for sleeploop in np.arange(60*5*(totalnode-1)):
+                    if not os.path.exists(同步文件):
+                        TimeECHO(f"发现异常,主辅通信成功={主辅通信成功} 同步文件{同步文件}消失. 跳出循环")
+                        break
                     # 主辅通信循环
                     if os.path.exists(filename) and not 主辅通信成功:
                         myrandom = self.readfile(filename)[0].strip()
@@ -1384,6 +1387,7 @@ class DQWheel:
                     sleeptime = int(sleeptime_read)
         else:
             TimeErr("同步等待失败")
+            self.touchfile(全部通信失败文件)
             return False
         #
         self.barriernode(mynode, totalnode, "同步等待结束")
