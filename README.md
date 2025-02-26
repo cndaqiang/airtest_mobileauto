@@ -36,14 +36,14 @@ Manages the opening, stopping, and restarting of apps.
 
 Below are some examples of development scripts that demonstrate the capabilities of the project.
 
-- An automation script for [Honor of Kings](https://github.com/cndaqiang/WZRY) .
+- An automation script for [Honor of Kings](https://github.com/cndaqiang/autowzry) .
 - Automate daily sign-ins and claim gift packages on Android with [autoansign](https://github.com/MobileAutoFlow/autoansign).
 
 For the configuration file format, see [this guide](https://wzry-doc.pages.dev/guide/config/).
 
 ## Acknowledgements
 
-The historical versions of this script, namely [WZRY_AirtestIDE_XiaoMi11@cndaqiang](https://github.com/cndaqiang/WZRY_AirtestIDE_XiaoMi11), [WZRY_AirtestIDE_emulator@cndaqiang](https://github.com/cndaqiang/WZRY_AirtestIDE_emulator), and [WZRY@cndaqiang](https://github.com/cndaqiang/WZRY) have also been instrumental in the development process.
+The historical versions of this script, namely [WZRY_AirtestIDE_XiaoMi11@cndaqiang](https://github.com/cndaqiang/WZRY_AirtestIDE_XiaoMi11), [WZRY_AirtestIDE_emulator@cndaqiang](https://github.com/cndaqiang/WZRY_AirtestIDE_emulator), and [WZRY@cndaqiang](https://github.com/cndaqiang/autowzry) have also been instrumental in the development process.
 
 ## License
 

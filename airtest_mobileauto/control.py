@@ -181,7 +181,7 @@ class Settings(object):
         if not os.path.exists(config_file):
             return
         # 不指定config的时候, 下面的就没法读入了
-        if ".yaml" == config_file[-5:]:
+        if ".yaml" == config_file[-5:] or ".yml" == config_file[-4:]:
             config = readyaml(config_file)
         else:
             TimeECHO("airtest_mobileauto已采用yaml格式配置文件，请升级相关程序")
@@ -1015,11 +1015,12 @@ class DQWheel:
             return var_dict
         # 读取变量
         # read_dict 不仅适合保存字典,而且适合任意的变量类型
-        if ".yaml" == var_dict_file[-5:]:
+        if ".yaml" == var_dict_file[-5:] or ".yml" == var_dict_file[-4:]:
             # 读取 YAML 文件
             config = readyaml(var_dict_file)
             return config.yaml_dict
         #
+        TimeECHO(f"请升级程序，使用yaml格式存储字典")
         # 旧版本的pickle格式, 适合存储任意数据
         import pickle
         try:
