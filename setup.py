@@ -31,5 +31,5 @@ setup(
         'Programming Language :: Python :: 3',
         'Topic :: Utilities',
     ],
-    python_requires='>=3.6',
+    python_requires=">=3.7, <3.13",  # 设置 Python 3.7 ~ 3.12
 )
