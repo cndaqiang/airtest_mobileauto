@@ -152,6 +152,8 @@ class Settings(object):
     logfile = "result.0.txt"
     logfile_dict = {0: "result.0.txt"}
     #
+    # 界面是否改变. 可以根据此参数, 决定当前界面是否需要重新识别, 在touch、restart、时间太久后为True
+    screen_update = True
 
     # client, 客户端情况
     mynode = 0
@@ -620,6 +622,7 @@ def exists(*args, **kwargs):
 
 
 def touch(*args, **kwargs):
+    Settings.screen_update = True
     try:
         result = touch_o(*args, **kwargs)
     except:
@@ -639,6 +642,7 @@ def touch(*args, **kwargs):
 
 
 def swipe(*args, **kwargs):
+    Settings.screen_update = True
     result = False
     try:
         result = swipe_o(*args, **kwargs)
@@ -659,6 +663,7 @@ def swipe(*args, **kwargs):
 
 
 def start_app(*args, **kwargs):
+    Settings.screen_update = True
     if Settings.start_app_syskeys:
         args_list = list(args)
         args_list[0] = str(args_list[0])+" --pct-syskeys 0"
@@ -716,6 +721,7 @@ def start_app(*args, **kwargs):
 
 
 def stop_app(*args, **kwargs):
+    Settings.screen_update = True
     try:
         result = True
         stop_app_o(*args, **kwargs)
