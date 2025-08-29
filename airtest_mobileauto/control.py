@@ -214,7 +214,9 @@ class Settings(object):
         for i in range(10):
             cls.logfile_dict[i] = ""
         cls.logfile_dict = config.get('logfile', cls.logfile_dict)
-        # 处理旧日志
+        for i in range(cls.totalnode):
+            if i not in cls.logfile_dict.keys():
+                cls.logfile_dict[i] = f"result.{cls.mynode}.txt"
         for i in cls.logfile_dict.keys():
             if cls.multiprocessing:
                 if i >= cls.totalnode:
@@ -303,6 +305,7 @@ class Settings(object):
         #
         # 初始化之后，根据参数修改配置
         cls.logfile = cls.logfile_dict[cls.mynode]
+
     #
 
     @classmethod
