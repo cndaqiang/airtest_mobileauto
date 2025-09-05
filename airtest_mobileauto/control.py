@@ -211,28 +211,10 @@ class Settings(object):
         logger.setLevel(level)
         cls.outputnode = config.getint('outputnode', cls.outputnode)
         # 输入日志到文件
-        for i in range(10):
-            cls.logfile_dict[i] = ""
         cls.logfile_dict = config.get('logfile', cls.logfile_dict)
-        for i in range(cls.totalnode):
+        for i in list(range(cls.totalnode)) + [cls.mynode]: #range(cls.totalnode):
             if i not in cls.logfile_dict.keys():
                 cls.logfile_dict[i] = f"result.{cls.mynode}.txt"
-        for i in cls.logfile_dict.keys():
-            if cls.multiprocessing:
-                if i >= cls.totalnode:
-                    continue
-            else:
-                if i != cls.mynode:
-                    continue
-            if os.path.exists(cls.logfile_dict[i]):
-                try:
-                    os.remove(cls.logfile_dict[i]+".old.txt")
-                except:
-                    pass
-                try:
-                    os.rename(cls.logfile_dict[i], cls.logfile_dict[i]+".old.txt")
-                except:
-                    pass
         #
         # client
         cls.dockercontain = config.get('dockercontain', cls.dockercontain)
@@ -312,6 +294,17 @@ class Settings(object):
     def Config_mynode(cls, mynode):
         cls.mynode = mynode
         cls.logfile = cls.logfile_dict[cls.mynode]
+        #
+        if len(cls.logfile) > 0:
+            if os.path.exists(cls.logfile):
+                try:
+                    os.remove(cls.logfile+".old.txt")
+                except:
+                    pass
+                try:
+                    os.rename(cls.logfile, cls.logfile+".old.txt")
+                except:
+                    pass
 
     @classmethod
     def info(cls, prefix=""):
@@ -1029,8 +1022,8 @@ class DQWheel:
             config = readyaml(var_dict_file)
             return config.yaml_dict
         #
-        TimeECHO(f"请升级程序，使用yaml格式存储字典")
-        # 旧版本的pickle格式, 适合存储任意数据
+        # TimeECHO(f"请升级程序，使用yaml格式存储字典")
+        # 旧版本的pickle格式, 适合存储任意数据, 各自奇怪的数据需要广播时, 采用pickle安全一些
         import pickle
         try:
             with open(var_dict_file, 'rb') as f:
