@@ -164,7 +164,7 @@ class Settings(object):
     dockercontain = {}  # "androidcontain"
     BlueStackdir = ""  # "C:\Program Files\BlueStacks_nxt"
     LDPlayerdir = ""  # "D:\GreenSoft\LDPlayer"
-    MuMudir = ""  # "D:\Program Files\Netease\MuMu Player 12\shell"
+    MuMudir = ""  # 新版本 D:\Program Files\Netease\MuMu\nx_main, 旧版本 "D:\Program Files\Netease\MuMu Player 12\shell"
     # ADB地址
     LINK_dict = {0: "Android:///127.0.0.1:5555"}
     # 开始采用临时文件夹保存并行临时文件
@@ -238,7 +238,7 @@ class Settings(object):
         # [新方案] 与BlueStack模拟器采用相同处理，快捷键前台-打开模拟器-快捷键后台. 即使存在快捷键冲突的提示，也可以成功隐藏模拟器
         # 新方案的好处是代码和BlueStacks/LDPlayer通用
         #
-        if len(cls.BlueStackdir) > 0:
+        if len(cls.BlueStackdir) > 0 and os.path.exists(cls.BlueStackdir):
             cls.win_Instance[0] = "Nougat32"
             cls.win_InstanceName[0] = "BlueStacks App Player"
             for i in range(5):
@@ -247,12 +247,12 @@ class Settings(object):
                 cls.win_InstanceName[i] = f"{cls.win_InstanceName[0]} {i}"
                 cls.BossKey[i] = [17, 16, 88]  # ctrl+shift+X
             emulator = 'BlueStack'
-        elif len(cls.LDPlayerdir) > 0:
+        elif len(cls.LDPlayerdir) > 0 and os.path.exists(cls.LDPlayerdir):
             for i in range(5):
                 cls.win_Instance[i] = f"{i}"
                 cls.BossKey[i] = [17, 81]  # ctrl+q
             emulator = 'LDPlayer'
-        elif len(cls.MuMudir) > 0:
+        elif len(cls.MuMudir) > 0 and os.path.exists(cls.MuMudir):
             for i in range(5):
                 cls.win_Instance[i] = f"{i}"
                 cls.BossKey[i] = [18, 81]  # alt+q
@@ -263,6 +263,8 @@ class Settings(object):
         if len(emulator) > 0:
             cls.win_Instance = config.get(emulator+'_Instance', cls.win_Instance)
             cls.win_InstanceName = config.get(emulator+'_Windows', cls.win_InstanceName)
+            for key in cls.win_Instance.keys():
+                cls.win_Instance[key] = str(cls.win_Instance[key])
             # 是否替换默认的BossKey
             BossKey = config.get('BossKey', cls.BossKey)
             cls.BossKey.update(BossKey)
@@ -813,6 +815,8 @@ class DQWheel:
             return False
         else:
             # reset 是大时间范围内的子时间循环循环,例如在整个对战期间,每隔5分钟点一下屏幕
+            # reset 是整个timelimit 的中间的子循环, 借助同一个key, 但是不影响主循环的判断
+            # 也就是 reset = False 时, 会每隔limit成立一次, 而整体的limit依然成立
             if not reset:
                 if time.time()-self.timedict[timekey+".reset"] > limit:
                     self.timedict[timekey+".reset"] = time.time()
@@ -1513,8 +1517,6 @@ class deviceOB:
             self.客户端 = "RemoteAndroid"
         else:
             self.客户端 = "USBAndroid"
-        #
-
         #
         self.实体终端 = False
         self.实体终端 = "mac" in self.控制端 or "ios" in self.设备类型
