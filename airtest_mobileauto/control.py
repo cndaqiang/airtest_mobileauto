@@ -10,6 +10,7 @@
 # .......
 from datetime import datetime, timezone, timedelta
 import time
+from time import sleep
 from airtest.core.settings import Settings as ST
 import logging
 import sys
@@ -24,7 +25,7 @@ import yaml
 # 临时目录,用于存放临时文件
 import tempfile
 # 重写函数#
-from airtest.core.api import connect_device, sleep
+from airtest.core.api import connect_device as connect_device_o
 from airtest.core.api import exists as exists_o
 from airtest.core.api import touch as touch_o
 from airtest.core.api import swipe as swipe_o
@@ -597,7 +598,22 @@ def connect_status(times=10):
             continue
     TimeECHO(f"设备失去联系")
     return False
+
 # ........................
+def connect_device(*args, **kwargs):
+    try:
+        result = connect_device_o(*args, **kwargs)
+    except:
+        result = False
+        TimeECHO(f" {fun_name(1)}  失败")
+        sleep(1)
+        try:
+            result = connect_device_o(*args, **kwargs)
+        except:
+            traceback.print_exc()
+            TimeECHO(f"再次尝试{fun_name(1)}仍失败")
+            result = False
+    return result
 
 
 def exists(*args, **kwargs):
