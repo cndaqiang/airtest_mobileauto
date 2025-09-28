@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "airtest_mobileauto"
 version = "2.1.8.3"
 authors = [
-    { name="cndaqiang", email="who@cndaqiang.ac.cn" },
+    { name = "cndaqiang", email = "who@cndaqiang.ac.cn" },
 ]
 description = "A robust, object-oriented, multi-process mobile app control framework based on AirTest, designed for stable and compatible debugging and automation of devices and apps. Ideal for tasks such as game automation in titles like Honor of Kings, with enhanced stability features including connection checks, automatic retries on failure, and automatic restarts for continuous operation."
 readme = { file = "README.md", content-type = "text/markdown" }
@@ -19,23 +19,8 @@ dependencies = [
     "pyyaml",
 ]
 
-[project.optional-dependencies]
-windows = ["pypiwin32"]
+optional-dependencies.windows = ["pypiwin32"]
 
-[project.urls]
-Homepage = "https://github.com/cndaqiang/airtest_mobileauto"
-
-[tool.setuptools.packages.find]
-# 自动查找包
-include = ["airtest_mobileauto*"]
-
-[tool.setuptools.package-data]
-# 保证 png 文件被包含
-airtest_mobileauto = ["tpl_target_pos.png"]
-
-[project.classifiers]
-# 这里 setuptools 需要数组形式，但 PEP 621 要求 TOML 的 array
-# 用字符串数组即可
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -43,3 +28,12 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Utilities",
 ]
+
+[project.urls]
+Homepage = "https://github.com/cndaqiang/airtest_mobileauto"
+
+[tool.setuptools.packages.find]
+include = ["airtest_mobileauto*"]
+
+[tool.setuptools.package-data]
+airtest_mobileauto = ["tpl_target_pos.png"]
