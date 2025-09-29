@@ -17,6 +17,7 @@ from .control import (
     deviceOB,          # 设备对象，用于连接、重启等操作
     appOB,             # 应用对象，用于启动、关闭APP等操作
     TaskManager,       # 多进程任务管理器
+    check_requirements, # 检查必要的依赖项
 
     # =================================================================
     # 重写的Airtest核心函数 (Rewritten Airtest Core Functions)
@@ -65,7 +66,6 @@ __all__ = [
     "TaskManager",
 
     # Rewritten Airtest Functions
-    "sleep",
     "exists",
     "touch",
     "swipe",

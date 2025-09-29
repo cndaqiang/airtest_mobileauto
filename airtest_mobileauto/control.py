@@ -15,7 +15,6 @@ from airtest.core.settings import Settings as ST
 import logging
 import sys
 import os
-import numpy as np
 import random
 import traceback
 import subprocess
@@ -32,7 +31,6 @@ from airtest.core.api import swipe as swipe_o
 from airtest.core.api import start_app as start_app_o
 from airtest.core.api import stop_app as stop_app_o
 from airtest.core.api import Template as Template_o
-
 # ........................
 # python -m pip install --upgrade --no-deps --force-reinstall airtest
 # vscode设置image preview的解析目录为assets,就可以预览了
@@ -213,7 +211,7 @@ class Settings(object):
         cls.outputnode = config.getint('outputnode', cls.outputnode)
         # 输入日志到文件
         cls.logfile_dict = config.get('logfile', cls.logfile_dict)
-        for i in list(range(cls.totalnode)) + [cls.mynode]: #range(cls.totalnode):
+        for i in list(range(cls.totalnode)) + [cls.mynode]:  # range(cls.totalnode):
             if i not in cls.logfile_dict.keys():
                 cls.logfile_dict[i] = f"result.{cls.mynode}.txt"
         #
@@ -586,7 +584,7 @@ def touchkey_win(Key=[]):
 
 
 def connect_status(times=10):
-    for i in np.arange(times):
+    for i in range(times):
         try:
             exists_o(Settings.testpng)
             return True
@@ -600,6 +598,8 @@ def connect_status(times=10):
     return False
 
 # ........................
+
+
 def connect_device(*args, **kwargs):
     try:
         result = connect_device_o(*args, **kwargs)
@@ -989,7 +989,7 @@ class DQWheel:
         if ionode:
             TimeECHO(f"BARRIERNODE [{name}]")
         #
-        for i in np.arange(1, totalnode):
+        for i in range(1, totalnode):
             filename = f".tmp.barrier.{i}.{name}.txt"
             filename = os.path.join(Settings.tmpdir, filename)
             if ionode:
@@ -1312,7 +1312,7 @@ class DQWheel:
             self.removefile(全部通信失败文件)
         # 最后一个通过才会删除成功文件,避免残留文件干扰
         self.removefile(全部通信成功文件)
-        for i in np.arange(1, totalnode):
+        for i in range(1, totalnode):
             if mynode > 0 and mynode != i:
                 continue
             TimeECHO(f"进行同步循环{i}")
@@ -1335,7 +1335,7 @@ class DQWheel:
                 self.filelist.append(lockfile)
                 # 开始通信循环
                 主辅通信成功 = False
-                for sleeploop in np.arange(60*5):
+                for sleeploop in range(60*5):
                     if not os.path.exists(lockfile):
                         主辅通信成功 = True
                         self.removefile(filename)
@@ -1358,7 +1358,7 @@ class DQWheel:
                 lockfile = os.path.join(Settings.tmpdir, lockfile)
                 TimeECHO(f"进行同步判定{i}")
                 sleeploop = 0
-                for sleeploop in np.arange(60*5*(totalnode-1)):
+                for sleeploop in range(60*5*(totalnode-1)):
                     # 主辅通信循环
                     if os.path.exists(filename) and not 主辅通信成功:
                         myrandom = self.readfile(filename)[0].strip()
@@ -1792,7 +1792,7 @@ class deviceOB:
         sleeptime = max(10, sleeptime-60)
         printtime = max(30, sleeptime/10)
         TimeECHO("sleep %d min" % (sleeptime/60))
-        for i in np.arange(int(sleeptime/printtime)):
+        for i in range(int(sleeptime/printtime)):
             TimeECHO(f"...taskkill_sleep: {i}", end='\r')
             sleep(printtime)
         self.启动设备()
@@ -1960,7 +1960,7 @@ class appOB:
         else:
             TimeECHO("sleep %d min" % (sleeptime/60))
             nstep = int(sleeptime/printtime)
-            for i in np.arange(nstep):
+            for i in range(nstep):
                 TimeECHO(f"...taskkill_sleep: {i}/{nstep}", end='\r')
                 sleep(printtime)
         TimeECHO(f"打开程序")
@@ -2073,12 +2073,14 @@ class TaskManager:
         Settings.Config(self.config_file)
         #
         if mynode != None:
-            TimeDebug("input mynode=%s", mynode)
             # 多进程时, mynode无法读入, 这里进行设置
-            Settings.Config_mynode(mynode)
+            TimeDebug("set mynode=%s", mynode)
         else:
             mynode = Settings.mynode
-            TimeDebug("reD mynode=%s", mynode)
+            TimeDebug("read mynode=%s", mynode)
+        # 根据mynode配置一些参数, 如logfile
+        Settings.Config_mynode(mynode)
+        # 输出node相关参数
         Settings.info("single_exe")
         #
         TimeDebug("single_execute starting with mynode=%s", mynode)
@@ -2099,3 +2101,15 @@ class TaskManager:
         with multiprocessing.Pool(processes=m_process) as pool:
             results = pool.map(self.single_execute, range(m_process))
             TimeDebug("Mapping started, waiting for results...")
+
+
+def check_requirements(LINK=None):
+    """
+    检查运行环境.配置信息等是否正确
+    """
+    if LINK is not None:
+        device = connect_device(LINK)
+        if not device:
+            TimeErr(f"无法连接设备,请检查LINK={LINK}参数")
+            return False
+    return True

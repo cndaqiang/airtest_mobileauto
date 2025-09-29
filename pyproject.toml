@@ -15,7 +15,6 @@ license = { text = "MIT" }
 
 dependencies = [
     "airtest",
-    "numpy",
     "pyyaml",
 ]
 

@@ -5,12 +5,29 @@ conda activate "$env:USERPROFILE\miniconda3"
 # 清理旧构建文件
 Remove-Item -Path .\dist\* -Force -ErrorAction SilentlyContinue
 
-# 构建 sdist 和 wheel (推荐同时生成)
+# 构建 sdist 和 wheel
 python -m pip install --upgrade build twine
 python -m build
 
-# 安装生成的包（wheel 优先）
-Get-ChildItem -Path .\dist\* | ForEach-Object { python -m pip install --force-reinstall $_.FullName }
+# 安装新构建的包
+# 切换到脚本所在目录，保证相对路径正确
+Set-Location -Path $PSScriptRoot
 
-# 上传到 PyPI (如果需要)
-# python -m twine upload dist/*
+# 找到 dist 目录下的第一个 .whl
+$pkg = Get-ChildItem -Path ".\dist\*.whl" | Select-Object -First 1
+
+if ($null -eq $pkg) {
+    Write-Error "No .whl file found in dist directory!"
+    exit 1
+}
+
+$pkgPath = $pkg.FullName
+Write-Host "Installing package: $pkgPath"
+
+python -m pip install --no-deps --no-index --force-reinstall --no-cache-dir "$pkgPath"
+
+
+# 保持窗口一段时间，或者等待用户按键
+Write-Host ""
+Write-Host "执行完成，按 Enter 结束..."
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
