@@ -186,7 +186,7 @@ class Settings(object):
             config = readyaml(config_file)
         else:
             TimeECHO("airtest_mobileauto已采用yaml格式配置文件，请升级相关程序")
-            exit()
+            sys.exit()
         # node info
         cls.mynode = config.getint('mynode', cls.mynode)
         cls.totalnode = config.getint('totalnode', cls.totalnode)
@@ -562,6 +562,8 @@ def touchkey_win(Key=[]):
         TimeECHO(f"平台{Settings.platform} not support {fun_name(1)}")
         return False
     try:
+        # 导入 win32api 之前需要导入 pywintypes
+        import pywintypes
         import win32api
         import win32con
     except:

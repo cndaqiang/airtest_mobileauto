@@ -18,7 +18,7 @@ dependencies = [
     "pyyaml",
 ]
 
-optional-dependencies.windows = ["pypiwin32"]
+optional-dependencies.windows = ["pywin32"]
 
 classifiers = [
     "Development Status :: 5 - Production/Stable",

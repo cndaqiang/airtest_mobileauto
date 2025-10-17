@@ -28,6 +28,5 @@ python -m pip install --no-deps --no-index --force-reinstall --no-cache-dir "$pk
 
 
 # 保持窗口一段时间，或者等待用户按键
-Write-Host ""
-Write-Host "执行完成，按 Enter 结束..."
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+
+Read-Host -Prompt "Press any key to continue . . ."
