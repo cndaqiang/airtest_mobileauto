@@ -421,6 +421,10 @@ def getPopen(command):
         result = [1, traceback.format_exc()]
     return result
 
+# 兼容 Python 3.7 的 join
+def shlex_join(seq):
+    return " ".join(shlex.quote(str(s)) for s in seq)
+
 
 def run_command(command=[], sleeptime=20,  quiet=False, must_ok=False):
     """
@@ -436,7 +440,7 @@ def run_command(command=[], sleeptime=20,  quiet=False, must_ok=False):
         if len(i_command) < 1:
             continue
         # 去掉所有的空白符号看是否还有剩余命令
-        trim_insert = shlex.join(i_command).strip()
+        trim_insert = shlex_join(i_command).strip()
         if len(trim_insert) < 1:
             continue
         if not quiet:
@@ -1858,7 +1862,7 @@ class deviceOB:
             if len(i_command) < 1:
                 continue
             # 去掉所有的空白符号看是否还有剩余命令
-            trim_insert = shlex.join(i_command).strip()
+            trim_insert = shlex_join(i_command).strip()
             if len(trim_insert) < 1:
                 continue
             if not quiet:
