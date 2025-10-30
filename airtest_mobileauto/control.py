@@ -422,6 +422,8 @@ def getPopen(command):
     return result
 
 # 兼容 Python 3.7 的 join
+
+
 def shlex_join(seq):
     return " ".join(shlex.quote(str(s)) for s in seq)
 
@@ -1063,7 +1065,7 @@ class DQWheel:
     def save_dict(self, var_dict, var_dict_file="position_dict.yaml"):
         # 保存变量
         # save_dict 不仅适合保存字典,而且适合任意的变量类型
-        if ".yaml" == var_dict_file[-5:]:
+        if ".yaml" == var_dict_file[-5:] or ".yml" == var_dict_file[-4:]:
             if save_yaml(var_dict, var_dict_file):
                 return
         #
@@ -1698,7 +1700,15 @@ class deviceOB:
         exit_code = run_command(command=command)
         #
         # 让客户端在后台运行
-        touchkey_win(BossKey)
+        if len(BossKey) > 0:
+            # 等待客户端启动, 直接调用 self.启动设备()可以
+            # 但是 deviceOB内部调用没成功, 未知原因失效
+            sleep(10)
+            touchkey_win([88])
+            sleep(5)
+            touchkey_win([88])
+            sleep(5)
+            touchkey_win(BossKey)
         #
         if exit_code == 0:
             TimeECHO(f"启动成功")
@@ -1746,6 +1756,7 @@ class deviceOB:
                     sleep(5)
                     PID = getpid_win(IMAGENAME="HD-Player.exe", key=Settings.win_InstanceName[self.mynode])
                     touchkey_win(BossKey)
+                    sleep(5)
             if PID > 0:
                 command.append(["taskkill", "/F", "/FI", f"PID eq {str(PID)}"])
             else:
