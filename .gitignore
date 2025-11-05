@@ -1,22 +1,22 @@
-# Nuitka / Cython 编译产物
-*.pyd                    # Python 扩展模块（Windows）
-*.pyi                    # Python 类型存根文件
-*.c                      # Cython 生成的 C 代码
-*.cpp                    # Cython 生成的 C++ 代码
-*.build/                 # Nuitka 构建目录
-*.onefile-build/         # Nuitka onefile 构建目录
-*.dist/                  # Nuitka dist 目录
+#Nuitka/Cython编译产物
+*.pyd
+*.pyi
+*.c
+*.cpp
+*.build/
+*.onefile-build/
+*.dist/
 
-# Byte-compiled / optimized / DLL files
+#Byte-compiled/optimized/DLLfiles
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# C extensions
+#Cextensions
 *.so
 
-# Distribution / packaging
+#Distribution/packaging
 .Python
 env/
 build/
@@ -34,17 +34,17 @@ var/
 .installed.cfg
 *.egg
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the executable.
+#PyInstaller
+#Usuallythesefilesarewrittenbyapythonscriptfromatemplate
+#beforePyInstallerbuildstheexecutable.
 *.manifest
 *.spec
 
-# Installer logs
+#Installerlogs
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Unit test / coverage reports
+#Unittest/coveragereports
 htmlcov/
 .tox/
 .nox/
@@ -57,31 +57,31 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
-# Jupyter Notebook
+#JupyterNotebook
 .ipynb_checkpoints
 
-# pyenv
+#pyenv
 .python-version
 
-# celery beat schedule file
+#celerybeatschedulefile
 celerybeat-schedule
 
-# dotenv
+#dotenv
 .env
 
-# virtualenv
+#virtualenv
 venv/
 ENV/
 
-# Spyder project settings
+#Spyderprojectsettings
 .spyderproject
 .spyproject
 
-# Rope project settings
+#Ropeprojectsettings
 .ropeproject
 
-# mkdocs documentation
+#mkdocsdocumentation
 /site
 
-# mypy
+#mypy
 .mypy_cache/
