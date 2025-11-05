@@ -1,3 +1,12 @@
+# Nuitka / Cython 编译产物
+*.pyd                    # Python 扩展模块（Windows）
+*.pyi                    # Python 类型存根文件
+*.c                      # Cython 生成的 C 代码
+*.cpp                    # Cython 生成的 C++ 代码
+*.build/                 # Nuitka 构建目录
+*.onefile-build/         # Nuitka onefile 构建目录
+*.dist/                  # Nuitka dist 目录
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.pyc

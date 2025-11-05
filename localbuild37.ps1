@@ -1,5 +1,5 @@
 # 激活 python37
-$baseDir = 'D:\GreenSoft\python-3.7.0-embed-win32' # amd64-> win32 少10M
+$baseDir = 'D:\GreenSoft\WPy-3702\python-3.7.0' # amd64-> win32 少10M
 $env:PATH = "$baseDir;$baseDir\Scripts;" + $env:PATH
 
 # 安装
