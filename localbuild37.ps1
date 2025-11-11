@@ -5,8 +5,8 @@ $env:PATH = "$baseDir;$baseDir\Scripts;" + $env:PATH
 # 安装
 
 #python -m pip install . 
+#python -m pip install -e ".[ocr]"
 python -m pip install . --no-deps
-
 
 
 # 保持窗口一段时间，或者等待用户按键

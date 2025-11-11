@@ -31,6 +31,7 @@ from airtest.core.api import swipe as swipe_o
 from airtest.core.api import start_app as start_app_o
 from airtest.core.api import stop_app as stop_app_o
 from airtest.core.api import Template as Template_o
+from airtest.core.api import snapshot as snapshot_o
 # ........................
 # python -m pip install --upgrade --no-deps --force-reinstall airtest
 # vscode设置image preview的解析目录为assets,就可以预览了
@@ -788,6 +789,30 @@ def Template(*args, **kwargs):
     # 调用Template_o函数，传入修改后的参数
     return Template_o(*args, **kwargs)
 
+def snapshot(*args, **kwargs):
+    #Settings.screen_update = True
+    """
+    注意airtest的snapshot是截图,返回截图日志.
+    若二次开发需要opencv的图片,则是
+    arr = self.移动端.device.snapshot()
+    cv2.imwrite("screenshot_airtest.png", arr)
+    """
+    try:
+        result = snapshot_o(*args, **kwargs)
+    except:
+        result = None
+        TimeECHO(f" {fun_name(1)}  失败")
+        if not connect_status():
+            TimeErr(f"{fun_name(1)}连接不上设备")
+            return result
+        sleep(1)
+        try:
+            result = snapshot_o(*args, **kwargs)
+        except:
+            traceback.print_exc()
+            TimeECHO(f"再次尝试{fun_name(1)}仍失败")
+            result = None
+    return result
 
 class DQWheel:
     def __init__(self, var_dict_file='var_dict_file.yaml', mynode=-10, totalnode=-10):
@@ -1703,11 +1728,8 @@ class deviceOB:
         if len(BossKey) > 0:
             # 等待客户端启动, 直接调用 self.启动设备()可以
             # 但是 deviceOB内部调用没成功, 未知原因失效
-            sleep(10)
-            touchkey_win([88])
-            sleep(5)
-            touchkey_win([88])
-            sleep(5)
+            # 如果此时鼠标在编辑器里, 就可以执行
+            sleep(15)
             touchkey_win(BossKey)
         #
         if exit_code == 0:
