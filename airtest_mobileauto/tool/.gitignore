@@ -1,0 +1,14 @@
+# Ignore picture data
+pic_data/
+
+# Ignore all png files
+*.png
+
+# Python temporary files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore result text files
+result*txt

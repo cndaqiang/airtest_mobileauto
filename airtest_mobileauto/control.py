@@ -32,6 +32,8 @@ from airtest.core.api import start_app as start_app_o
 from airtest.core.api import stop_app as stop_app_o
 from airtest.core.api import Template as Template_o
 from airtest.core.api import snapshot as snapshot_o
+# 多图识别优化
+from airtest_mobileauto.manyexists import manyexists
 # ........................
 # python -m pip install --upgrade --no-deps --force-reinstall airtest
 # vscode设置image preview的解析目录为assets,就可以预览了
@@ -826,6 +828,7 @@ class DQWheel:
         self.var_dict_file = var_dict_file
         self.var_dict = self.read_dict(self.var_dict_file)
         self.savepos = True
+        self.use_concurrent = False #开启并行加速
         # 子程序运行次数
         self.calltimes_dict = {}
         # 所有的临时文件, 即.tmp.开头的文件, 都存储到Settings.tmpdir目录
@@ -1173,7 +1176,7 @@ class DQWheel:
                 seen.add(item.filepath)
         return unique_elements
 
-    def 存在任一张图(self, array, strinfo="", savepos=False):
+    def 存在任一张图OLD(self, array, strinfo="", savepos=False):
         array = self.uniq_Template_array(array)
         判断元素集合 = array
         strinfo = strinfo if len(strinfo) > 0 else "图片"
@@ -1195,6 +1198,141 @@ class DQWheel:
                     self.save_dict(self.var_dict, self.var_dict_file)
                 return True, 判断元素集合
         return False, 判断元素集合
+
+    def 存在任一张图NEW(self, array, strinfo="", savepos=False, use_concurrent=None):
+        """
+        使用manyexists优化的版本：单张截图检查所有模板，性能更好
+        相比exists逐张截图，速度提升显著，特别是在检查多张图片时
+        """
+        array = self.uniq_Template_array(array)
+        判断元素集合 = array
+        strinfo = strinfo if len(strinfo) > 0 else "图片"
+        if strinfo in self.calltimes_dict.keys():
+            self.calltimes_dict[strinfo] = self.calltimes_dict[strinfo] + 1
+        else:
+            self.calltimes_dict[strinfo] = 1
+        content = f"第[{self.calltimes_dict[strinfo]}]次寻找{strinfo}"
+        length = len(判断元素集合)
+        use_concurrent = use_concurrent if use_concurrent is not None else self.use_concurrent
+
+        # 使用manyexists进行批量检测 - 单张截图检查所有模板
+        TimeECHO(f"{content}: 批量检测{length}张图片 (单张截图)")
+        results, screenshot = manyexists(判断元素集合,use_concurrent=use_concurrent)
+
+        # 检查结果
+        for idx, (template, result) in enumerate(zip(判断元素集合, results)):
+            if result is not False:
+                TimeECHO(f"{strinfo}成功:{template}")
+                # 交换元素位置
+                判断元素集合[0], 判断元素集合[idx] = 判断元素集合[idx], 判断元素集合[0]
+                if savepos:
+                    self.var_dict[strinfo] = result
+                    self.save_dict(self.var_dict, self.var_dict_file)
+                return True, 判断元素集合
+
+        TimeECHO(f"{strinfo}: 未找到任何匹配图片")
+        return False, 判断元素集合
+
+    def 每个元素的位置OLD(self, array):
+        """
+        旧算法：逐个检查每个模板的位置
+        返回每个模板的位置列表，未找到的为False
+        注意：此函数保持输入array的原始顺序，不做去重处理
+        """
+        所有位置 = []
+        for template in array:
+            pos = exists(template)
+            所有位置.append(pos if pos else False)
+        return 所有位置
+
+    def 每个元素的位置NEW(self, array, use_concurrent=None):
+        """
+        新算法：使用manyexists批量检查所有模板的位置
+        返回每个模板的位置列表，未找到的为False
+        注意：此函数保持输入array的原始顺序，不做去重处理
+        """
+        use_concurrent = use_concurrent if use_concurrent is not None else self.use_concurrent
+        results, screenshot = manyexists(array, use_concurrent=use_concurrent)
+        return results
+
+    def 存在任一张图OLD(self, array, strinfo="", savepos=False):
+        """
+        使用旧算法：逐个exists检查，找到就停止
+        保持原有的提前终止逻辑，保证性能
+        """
+        array = self.uniq_Template_array(array)
+        判断元素集合 = array
+        strinfo = strinfo if len(strinfo) > 0 else "图片"
+        if strinfo in self.calltimes_dict.keys():
+            self.calltimes_dict[strinfo] = self.calltimes_dict[strinfo] + 1
+        else:
+            self.calltimes_dict[strinfo] = 1
+        content = f"第[{self.calltimes_dict[strinfo]}]次寻找{strinfo}"
+        length = len(判断元素集合)
+
+        # 保持原有逻辑：循环检测，找到就停止
+        for idx, i in enumerate(判断元素集合):
+            TimeECHO(f"{content}({idx+1}\{length}):{i}")
+            pos = exists(i)
+            if pos:
+                TimeECHO(f"{strinfo}成功:{i}")
+                # 交换元素位置
+                判断元素集合[0], 判断元素集合[idx] = 判断元素集合[idx], 判断元素集合[0]
+                if savepos:
+                    self.var_dict[strinfo] = pos
+                    self.save_dict(self.var_dict, self.var_dict_file)
+                return True, 判断元素集合
+        return False, 判断元素集合
+
+    def 存在任一张图NEW(self, array, strinfo="", savepos=False, use_concurrent=None):
+        """
+        使用manyexists优化的版本：单张截图检查所有模板，找到就停止，性能更好
+        """
+        array = self.uniq_Template_array(array)
+        判断元素集合 = array
+        strinfo = strinfo if len(strinfo) > 0 else "图片"
+        if strinfo in self.calltimes_dict.keys():
+            self.calltimes_dict[strinfo] = self.calltimes_dict[strinfo] + 1
+        else:
+            self.calltimes_dict[strinfo] = 1
+        content = f"第[{self.calltimes_dict[strinfo]}]次寻找{strinfo}"
+        length = len(判断元素集合)
+
+        # 批量检测：单张截图获取所有结果（保持提前终止逻辑）
+        TimeECHO(f"{content}: 批量检测{length}张图片 (单张截图)")
+        use_concurrent = use_concurrent if use_concurrent is not None else self.use_concurrent
+        results, screenshot = manyexists(判断元素集合, use_concurrent=use_concurrent)
+
+        # 检查并找到第一个成功的位置
+        for idx, pos in enumerate(results):
+            if pos is not False:
+                TimeECHO(f"{strinfo}成功:{判断元素集合[idx]}")
+                # 交换元素位置
+                判断元素集合[0], 判断元素集合[idx] = 判断元素集合[idx], 判断元素集合[0]
+                if savepos:
+                    self.var_dict[strinfo] = pos
+                    self.save_dict(self.var_dict, self.var_dict_file)
+                return True, 判断元素集合
+
+        TimeECHO(f"{strinfo}: 未找到任何匹配图片")
+        return False, 判断元素集合
+
+    def 每个元素的位置(self, *args, **kwargs):
+        """
+        接口函数：先尝试新版本，失败则自动降级到旧版本
+        """
+        try:
+            return self.每个元素的位置NEW(*args, **kwargs)
+        except Exception as e:
+            TimeECHO(f"每个元素的位置NEW出错({type(e).__name__}): {e}，将采用旧算法")
+            return self.每个元素的位置OLD(*args, **kwargs)
+
+    def 存在任一张图(self, *args, **kwargs):
+        try:
+            return self.存在任一张图NEW(*args, **kwargs)
+        except Exception as e:
+            TimeECHO(f"存在任一张图NEW出错，将采用旧算法: {e}")
+            return self.存在任一张图OLD(*args, **kwargs)
 
     def existsTHENtouch(self, png=Settings.testpng, keystr="", savepos=False):
         savepos = savepos and len(keystr) > 0 and self.savepos

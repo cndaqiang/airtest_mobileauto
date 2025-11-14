@@ -14,18 +14,12 @@ requires-python = ">=3.7,<3.13"
 license = { text = "MIT" }
 
 dependencies = [
-    "airtest==1.3.6",
+    "airtest",
     "pyyaml",
     "opencv-contrib-python>=4.4.0.46,<=4.6.0.66",
     "numpy<2.0",
     "pywin32; platform_system=='Windows'",
 ]
-
-[project.optional-dependencies]
-# OCR 功能（实现待定，测试后确定底层架构）
-# 候选方案：easyocr (PyTorch, 自带CUDA), rapidocr (ONNX Runtime)
-ocr = []
-all = []
 
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -34,6 +28,10 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Utilities",
 ]
+
+[project.optional-dependencies]
+ocr = []
+all = []
 
 [project.urls]
 Homepage = "https://github.com/cndaqiang/airtest_mobileauto"
