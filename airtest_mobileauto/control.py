@@ -1176,64 +1176,7 @@ class DQWheel:
                 seen.add(item.filepath)
         return unique_elements
 
-    def 存在任一张图OLD(self, array, strinfo="", savepos=False):
-        array = self.uniq_Template_array(array)
-        判断元素集合 = array
-        strinfo = strinfo if len(strinfo) > 0 else "图片"
-        if strinfo in self.calltimes_dict.keys():
-            self.calltimes_dict[strinfo] = self.calltimes_dict[strinfo]+1
-        else:
-            self.calltimes_dict[strinfo] = 1
-        content = f"第[{self.calltimes_dict[strinfo]}]次寻找{strinfo}"
-        length = len(判断元素集合)
-        for idx, i in enumerate(判断元素集合):
-            TimeECHO(f"{content}({idx+1}/{length}):{i}")
-            pos = exists(i)
-            if pos:
-                TimeECHO(f"{strinfo}成功:{i}")
-                # 交换元素位置
-                判断元素集合[0], 判断元素集合[idx] = 判断元素集合[idx], 判断元素集合[0]
-                if savepos:
-                    self.var_dict[strinfo] = pos
-                    self.save_dict(self.var_dict, self.var_dict_file)
-                return True, 判断元素集合
-        return False, 判断元素集合
-
-    def 存在任一张图NEW(self, array, strinfo="", savepos=False, use_concurrent=None):
-        """
-        使用manyexists优化的版本：单张截图检查所有模板，性能更好
-        相比exists逐张截图，速度提升显著，特别是在检查多张图片时
-        """
-        array = self.uniq_Template_array(array)
-        判断元素集合 = array
-        strinfo = strinfo if len(strinfo) > 0 else "图片"
-        if strinfo in self.calltimes_dict.keys():
-            self.calltimes_dict[strinfo] = self.calltimes_dict[strinfo] + 1
-        else:
-            self.calltimes_dict[strinfo] = 1
-        content = f"第[{self.calltimes_dict[strinfo]}]次寻找{strinfo}"
-        length = len(判断元素集合)
-        use_concurrent = use_concurrent if use_concurrent is not None else self.use_concurrent
-
-        # 使用manyexists进行批量检测 - 单张截图检查所有模板
-        TimeECHO(f"{content}: 批量检测{length}张图片 (单张截图)")
-        results, screenshot = manyexists(判断元素集合,use_concurrent=use_concurrent)
-
-        # 检查结果
-        for idx, (template, result) in enumerate(zip(判断元素集合, results)):
-            if result is not False:
-                TimeECHO(f"{strinfo}成功:{template}")
-                # 交换元素位置
-                判断元素集合[0], 判断元素集合[idx] = 判断元素集合[idx], 判断元素集合[0]
-                if savepos:
-                    self.var_dict[strinfo] = result
-                    self.save_dict(self.var_dict, self.var_dict_file)
-                return True, 判断元素集合
-
-        TimeECHO(f"{strinfo}: 未找到任何匹配图片")
-        return False, 判断元素集合
-
-    def 每个元素的位置OLD(self, array):
+    def 每个元素的位置OLD(self, array, *args, **kwargs):
         """
         旧算法：逐个检查每个模板的位置
         返回每个模板的位置列表，未找到的为False
@@ -1245,7 +1188,7 @@ class DQWheel:
             所有位置.append(pos if pos else False)
         return 所有位置
 
-    def 每个元素的位置NEW(self, array, use_concurrent=None):
+    def 每个元素的位置NEW(self, array, use_concurrent=None, *args, **kwargs):
         """
         新算法：使用manyexists批量检查所有模板的位置
         返回每个模板的位置列表，未找到的为False
@@ -1255,7 +1198,7 @@ class DQWheel:
         results, screenshot = manyexists(array, use_concurrent=use_concurrent)
         return results
 
-    def 存在任一张图OLD(self, array, strinfo="", savepos=False):
+    def 存在任一张图OLD(self, array, strinfo="", savepos=False, *args, **kwargs):
         """
         使用旧算法：逐个exists检查，找到就停止
         保持原有的提前终止逻辑，保证性能
@@ -1284,7 +1227,7 @@ class DQWheel:
                 return True, 判断元素集合
         return False, 判断元素集合
 
-    def 存在任一张图NEW(self, array, strinfo="", savepos=False, use_concurrent=None):
+    def 存在任一张图NEW(self, array, strinfo="", savepos=False, screen = None, use_concurrent=None):
         """
         使用manyexists优化的版本：单张截图检查所有模板，找到就停止，性能更好
         """
@@ -1301,7 +1244,7 @@ class DQWheel:
         # 批量检测：单张截图获取所有结果（保持提前终止逻辑）
         TimeECHO(f"{content}: 批量检测{length}张图片 (单张截图)")
         use_concurrent = use_concurrent if use_concurrent is not None else self.use_concurrent
-        results, screenshot = manyexists(判断元素集合, use_concurrent=use_concurrent)
+        results, screenshot = manyexists(判断元素集合, screen = screen, use_concurrent=use_concurrent)
 
         # 检查并找到第一个成功的位置
         for idx, pos in enumerate(results):
@@ -1656,7 +1599,7 @@ class DQWheel:
 
 
 class deviceOB:
-    def __init__(self, 设备类型=None, mynode=0, totalnode=1, LINK="Android:///"+"127.0.0.1:"+str(5555)):
+    def __init__(self, 设备类型=None, mynode=0, totalnode=1, LINK="Android:///"+"127.0.0.1:"+str(5555),connect=True):
         # 控制端
         self.控制端 = sys.platform.lower()
         # 避免和windows名字接近
@@ -1717,7 +1660,8 @@ class deviceOB:
         TimeECHO(f"LINKURL({self.LINKURL})")
         TimeECHO(f"LINKport({self.LINKport})")
         #
-        self.连接设备()
+        if connect: 
+            self.连接设备()
 
     def 设备信息(self):
         self.display_info = {}
