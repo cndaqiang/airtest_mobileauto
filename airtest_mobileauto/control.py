@@ -1660,6 +1660,7 @@ class deviceOB:
         TimeECHO(f"LINKURL({self.LINKURL})")
         TimeECHO(f"LINKport({self.LINKport})")
         #
+        self.resolution = (0, 0)
         if connect: 
             self.连接设备()
 
