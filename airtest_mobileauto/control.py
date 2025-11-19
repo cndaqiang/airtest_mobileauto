@@ -1670,6 +1670,17 @@ class deviceOB:
             self.width = self.display_info["width"]
             self.height = self.display_info["height"]
             self.resolution = (self.width, self.height)
+            self.rooted = self.ROOT权限()
+
+    def ROOT权限(self):
+        rooted = False
+        try:
+            result = self.device.adb.shell('which su')
+            rooted = '/su' in result
+        except:
+            rooted = False
+        return rooted
+
 
     def 连接设备(self, times=1, timesMax=2):
         """
