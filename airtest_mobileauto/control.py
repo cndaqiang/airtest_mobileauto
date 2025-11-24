@@ -55,6 +55,11 @@ logger.setLevel(logging.WARNING)
 class readyaml():
     def __init__(self, yamlfile=""):
         self.yamlfile = yamlfile
+        self.yaml_dict = {}
+        #
+        if not os.path.exists(self.yamlfile):
+            return
+        #
         try:
             with open(yamlfile,  'r', encoding='utf-8') as f:
                 yaml_dict = yaml.load(f, Loader=yaml.FullLoader)
@@ -185,7 +190,7 @@ class Settings(object):
         config_file = "" if config_file is None else config_file
         # 不指定config的时候, 采用空字典,进行初始化
         if not os.path.exists(config_file):
-            config = {}
+            config = readyaml("")
         elif ".yaml" == config_file[-5:] or ".yml" == config_file[-4:]:
             config = readyaml(config_file)
         else:
