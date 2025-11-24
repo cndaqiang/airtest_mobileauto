@@ -182,10 +182,11 @@ class Settings(object):
 
     @classmethod
     def Config(cls, config_file="config.yaml"):
+        config_file = "" if config_file is None else config_file
+        # 不指定config的时候, 采用空字典,进行初始化
         if not os.path.exists(config_file):
-            return
-        # 不指定config的时候, 下面的就没法读入了
-        if ".yaml" == config_file[-5:] or ".yml" == config_file[-4:]:
+            config = {}
+        elif ".yaml" == config_file[-5:] or ".yml" == config_file[-4:]:
             config = readyaml(config_file)
         else:
             TimeECHO("airtest_mobileauto已采用yaml格式配置文件，请升级相关程序")
@@ -791,8 +792,9 @@ def Template(*args, **kwargs):
     # 调用Template_o函数，传入修改后的参数
     return Template_o(*args, **kwargs)
 
+
 def snapshot(*args, **kwargs):
-    #Settings.screen_update = True
+    # Settings.screen_update = True
     """
     注意airtest的snapshot是截图,返回截图日志.
     若二次开发需要opencv的图片,则是
@@ -816,6 +818,7 @@ def snapshot(*args, **kwargs):
             result = None
     return result
 
+
 class DQWheel:
     def __init__(self, var_dict_file='var_dict_file.yaml', mynode=-10, totalnode=-10):
         self.timedict = {}
@@ -828,7 +831,7 @@ class DQWheel:
         self.var_dict_file = var_dict_file
         self.var_dict = self.read_dict(self.var_dict_file)
         self.savepos = True
-        self.use_concurrent = False #开启并行加速
+        self.use_concurrent = False  # 开启并行加速
         # 子程序运行次数
         self.calltimes_dict = {}
         # 所有的临时文件, 即.tmp.开头的文件, 都存储到Settings.tmpdir目录
@@ -1227,7 +1230,7 @@ class DQWheel:
                 return True, 判断元素集合
         return False, 判断元素集合
 
-    def 存在任一张图NEW(self, array, strinfo="", savepos=False, screen = None, use_concurrent=None):
+    def 存在任一张图NEW(self, array, strinfo="", savepos=False, screen=None, use_concurrent=None):
         """
         使用manyexists优化的版本：单张截图检查所有模板，找到就停止，性能更好
         """
@@ -1244,7 +1247,7 @@ class DQWheel:
         # 批量检测：单张截图获取所有结果（保持提前终止逻辑）
         TimeECHO(f"{content}: 批量检测{length}张图片 (单张截图)")
         use_concurrent = use_concurrent if use_concurrent is not None else self.use_concurrent
-        results, screenshot = manyexists(判断元素集合, screen = screen, use_concurrent=use_concurrent)
+        results, screenshot = manyexists(判断元素集合, screen=screen, use_concurrent=use_concurrent)
 
         # 检查并找到第一个成功的位置
         for idx, pos in enumerate(results):
@@ -1599,7 +1602,7 @@ class DQWheel:
 
 
 class deviceOB:
-    def __init__(self, 设备类型=None, mynode=0, totalnode=1, LINK="Android:///"+"127.0.0.1:"+str(5555),connect=True):
+    def __init__(self, 设备类型=None, mynode=0, totalnode=1, LINK="Android:///"+"127.0.0.1:"+str(5555), connect=True):
         # 控制端
         self.控制端 = sys.platform.lower()
         # 避免和windows名字接近
@@ -1651,16 +1654,16 @@ class deviceOB:
         self.实体终端 = False
         self.实体终端 = "mac" in self.控制端 or "ios" in self.设备类型
         #
-        TimeECHO(f"控制端({self.控制端})")
-        TimeECHO(f"客户端({self.客户端})")
-        TimeECHO(f"ADB =({self.adb_path})")
-        TimeECHO(f"LINK({self.LINK})")
-        TimeECHO(f"LINKhead({self.LINKhead})")
-        TimeECHO(f"LINKtype({self.LINKtype})")
-        TimeECHO(f"LINKURL({self.LINKURL})")
-        TimeECHO(f"LINKport({self.LINKport})")
-        #
-        if connect: 
+        self.resolution = (960, 540)
+        if connect:
+            TimeECHO(f"控制端({self.控制端})")
+            TimeECHO(f"客户端({self.客户端})")
+            TimeECHO(f"ADB =({self.adb_path})")
+            TimeECHO(f"LINK({self.LINK})")
+            TimeECHO(f"LINKhead({self.LINKhead})")
+            TimeECHO(f"LINKtype({self.LINKtype})")
+            TimeECHO(f"LINKURL({self.LINKURL})")
+            TimeECHO(f"LINKport({self.LINKport})")
             self.连接设备()
 
     def 设备信息(self):
@@ -1680,7 +1683,6 @@ class deviceOB:
         except:
             rooted = False
         return rooted
-
 
     def 连接设备(self, times=1, timesMax=2):
         """
@@ -2043,7 +2045,11 @@ class appOB:
         # 校验是否存在APP, 不同地区的APPID可能存在差异，例如mark.via, mark.via.gp
         self.HaveAPP = len(self.APPID) > 0
         self.APPlist = []
-        if self.deviceOB:
+        self.获取APP列表()
+
+    #
+    def 获取APP列表(self):
+        if self.deviceOB.device:
             try:
                 self.APPlist = self.deviceOB.device.list_app()
             except:
@@ -2057,9 +2063,9 @@ class appOB:
                         self.APPID = str(app)
                         self.HaveAPP = True
                         break
-    #
 
     def 打开APP(self):
+        self.获取APP列表()
         if not self.HaveAPP:
             TimeECHO(f"{fun_name(1)}:不存在{self.APPID},return")
             return False
@@ -2078,6 +2084,7 @@ class appOB:
         return True
 
     def 重启APP(self, sleeptime=0):
+        self.获取APP列表()
         if not self.HaveAPP:
             TimeECHO(f"{fun_name(1)}:不存在{self.APPID},return")
             return False
@@ -2107,6 +2114,7 @@ class appOB:
     #
 
     def 关闭APP(self):
+        self.获取APP列表()
         if not self.HaveAPP:
             TimeECHO(f"{fun_name(1)}:不存在{self.APPID},return")
             return False
